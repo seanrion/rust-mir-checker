@@ -37,6 +37,7 @@ use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::fmt;
 use std::rc::Rc;
+use rustc_middle::mir::ConstantKind;
 
 /// This class is used to extract properties from Rust MIR
 /// Initially a pre-condition is given, then the visitor abstractly execute a basic block,
@@ -310,7 +311,7 @@ where
             Ref(_, _, place) | AddressOf(_, place) | Len(place) | Discriminant(place) => {
                 Some(vec![place.local])
             }
-            BinaryOp(_, operand1, operand2) | CheckedBinaryOp(_, operand1, operand2) => {
+            BinaryOp(_, box(operand1, operand2)) | CheckedBinaryOp(_, box(operand1, operand2)) => {
                 let res1 = self.extract_local_from_operand(operand1);
                 let res2 = self.extract_local_from_operand(operand2);
                 match (res1, res2) {
@@ -600,251 +601,269 @@ where
     fn visit_constant(
         &mut self,
         _user_ty: Option<UserTypeAnnotationIndex>, // TODO: Is this argument useful?
-        literal: &Const<'tcx>,
+        literal: &ConstantKind<'tcx>,
     ) -> Rc<SymbolicValue> {
-        let mut val = literal.val;
-        let ty = literal.ty;
-
-        if let rustc_middle::ty::ConstKind::Unevaluated(def_ty, substs, promoted) = &literal.val {
-            if def_ty.const_param_did.is_some() {
-                val = val.eval(
-                    self.body_visitor.context.tcx,
-                    self.body_visitor.type_visitor.get_param_env(),
-                );
-            } else {
-                let def_id = def_ty.def_id_for_type_of();
-                let substs = self.body_visitor.type_visitor.specialize_substs(
-                    substs,
-                    &self.body_visitor.type_visitor.generic_argument_map,
-                );
-                self.body_visitor
-                    .crate_context
-                    .substs_cache
-                    .insert(def_id, substs);
-                let path: Rc<Path> = match promoted {
-                    Some(promoted) => {
-                        let index = promoted.index();
-                        Rc::new(PathEnum::PromotedConstant { ordinal: index }.into())
-                    }
-                    None => {
-                        debug!("STATIC!");
-                        self.body_visitor
-                            .import_static(Path::new_static(self.body_visitor.context.tcx, def_id))
-                    } // None => unreachable!("static is not supported yet"),
-                };
-                self.body_visitor
-                    .type_visitor
-                    .path_ty_cache
-                    .insert(path.clone(), ty);
-                let val_at_path = self.body_visitor.lookup_path_and_refine_result(path, ty);
-                if let Expression::Variable { .. } = &val_at_path.expression {
-                    // Seems like there is nothing at the path, but...
-                    if self.body_visitor.context.tcx.is_mir_available(def_id) {
-                        // The MIR body should have computed something. If that something is
-                        // a structure, the value of the path will be unknown (only leaf paths have
-                        // known values).
-                        return val_at_path;
-                    }
-                    // Seems like a lazily serialized constant. Force evaluation.
-                    val = val.eval(
-                        self.body_visitor.context.tcx,
-                        self.body_visitor.type_visitor.get_param_env(),
-                    );
-                    if let rustc_middle::ty::ConstKind::Unevaluated(..) = &val {
-                        // val.eval did not manage to evaluate this, go with unknown.
-                        return val_at_path;
-                    }
-                } else {
-                    return val_at_path;
-                }
-            }
-        }
-
-        let result;
-        match ty.kind() {
-            // Numerical values
-            TyKind::Bool
-            | TyKind::Char
-            | TyKind::Float(..)
-            | TyKind::Int(..)
-            | TyKind::Uint(..) => match &val {
-                rustc_middle::ty::ConstKind::Param(ParamConst { index, .. }) => {
-                    if let Some(gen_args) = self.body_visitor.type_visitor.generic_arguments {
-                        if let Some(arg_val) = gen_args.as_ref().get(*index as usize) {
-                            return self.visit_constant(None, arg_val.expect_const());
+        // let mut val = literal.try_to_value().unwrap();
+        let ty = literal.ty();
+        let mut val;
+        let mut result = ConstantValue::Top;
+        match literal{
+            &ConstantKind::Ty(ct) => {
+                val = ct.val;
+                match ct.val {
+                    rustc_middle::ty::ConstKind::Unevaluated(rustc_middle::ty::Unevaluated { def, substs, promoted}) => {
+                        if def.const_param_did.is_some() {
+                            val = val.eval(
+                                self.body_visitor.context.tcx,
+                                self.body_visitor.type_visitor.get_param_env(),
+                            );
+                        } else {
+                            let def_id = def.def_id_for_type_of();
+                            let substs = self.body_visitor.type_visitor.specialize_substs(
+                                substs,
+                                &self.body_visitor.type_visitor.generic_argument_map,
+                            );
+                            self.body_visitor
+                                .crate_context
+                                .substs_cache
+                                .insert(def_id, substs);
+                            let path: Rc<Path> = match promoted {
+                                Some(promoted) => {
+                                    let index = promoted.index();
+                                    Rc::new(PathEnum::PromotedConstant { ordinal: index }.into())
+                                }
+                                None => {
+                                    debug!("STATIC!");
+                                    self.body_visitor
+                                        .import_static(Path::new_static(self.body_visitor.context.tcx, def_id))
+                                } // None => unreachable!("static is not supported yet"),
+                            };
+                            self.body_visitor
+                                .type_visitor
+                                .path_ty_cache
+                                .insert(path.clone(), ty);
+                            let val_at_path = self.body_visitor.lookup_path_and_refine_result(path, ty);
+                            if let Expression::Variable { .. } = &val_at_path.expression {
+                                // Seems like there is nothing at the path, but...
+                                if self.body_visitor.context.tcx.is_mir_available(def_id) {
+                                    // The MIR body should have computed something. If that something is
+                                    // a structure, the value of the path will be unknown (only leaf paths have
+                                    // known values).
+                                    return val_at_path;
+                                }
+                                // Seems like a lazily serialized constant. Force evaluation.
+                                val = val.eval(
+                                    self.body_visitor.context.tcx,
+                                    self.body_visitor.type_visitor.get_param_env(),
+                                );
+                                if let rustc_middle::ty::ConstKind::Unevaluated(..) = &val {
+                                    // val.eval did not manage to evaluate this, go with unknown.
+                                    return val_at_path;
+                                }
+                            } else {
+                                return val_at_path;
+                            }
                         }
-                    } else {
-                        // todo: figure out why gen_args is None for generic types when
-                        // the flag MIRAI_START_FRESH is on.
-                        return symbolic_value::BOTTOM.into();
                     }
-                    unreachable!(
-                        "reference to unmatched generic constant argument {:?} {:?}",
-                        literal, self.body_visitor.current_span
-                    );
+                    _ => (),
                 }
-                rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(scalar_int))) => {
-                    let size = scalar_int.size();
-                    // If this is not a Zero-Sized Type (ZST)
-                    if size.bytes() != 0 {
-                        let data = scalar_int.assert_bits(size);
-                        result = self.get_constant_from_scalar(&ty.kind(), data, size.bytes());
-                    } else {
-                        return symbolic_value::BOTTOM.into();
-                    }
-                }
-                _ => {
-                    unreachable!(
-                        "unexpected kind of literal {:?} {:?}",
-                        literal, self.body_visitor.current_span
-                    );
-                }
-            },
-            // Functions
-            TyKind::FnDef(def_id, substs)
-            | TyKind::Closure(def_id, substs)
-            | TyKind::Generator(def_id, substs, ..) => {
-                let specialized_ty = self
-                    .body_visitor
-                    .type_visitor
-                    .specialize_generic_argument_type(
-                        ty,
-                        &self.body_visitor.type_visitor.generic_argument_map,
-                    );
-                let substs = self.body_visitor.type_visitor.specialize_substs(
-                    substs,
-                    &self.body_visitor.type_visitor.generic_argument_map,
-                );
-                result = self
-                    .visit_function_reference(*def_id, specialized_ty, substs)
-                    .clone();
-            }
-            // References
-            TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Str) => {
-                if let rustc_middle::ty::ConstKind::Value(ConstValue::Slice { data, start, end }) =
-                    &val
-                {
-                    return self.get_reference_to_slice(ty.kind(), data, *start, *end);
-                } else {
-                    debug!("unsupported val of type Ref: {:?}", literal);
-                    unimplemented!();
-                };
-            }
-            TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Array(..)) => {
-                if let TyKind::Array(elem_type, length) = *t.kind() {
-                    return self
-                        .visit_reference_to_array_constant(&val, literal.ty, elem_type, length);
-                } else {
-                    unreachable!(); // match guard
-                }
-            }
-            TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Slice(..)) => match &val {
-                rustc_middle::ty::ConstKind::Value(ConstValue::Slice { data, start, end }) => {
-                    // The rust compiler should ensure this.
-                    // assume!(*end >= *start);
-                    let slice_len = *end - *start;
-                    let bytes = data
-                        .get_bytes(
-                            &self.body_visitor.context.tcx,
-                            // invent a pointer, only the offset is relevant anyway
-                            mir::interpret::Pointer::new(
-                                mir::interpret::AllocId(0),
-                                rustc_target::abi::Size::from_bytes(*start as u64),
-                            ),
-                            rustc_target::abi::Size::from_bytes(slice_len as u64),
-                        )
-                        .unwrap();
 
-                    let slice = &bytes[*start..*end];
-                    let e_type = if let TyKind::Slice(elem_type) = t.kind() {
-                        ExpressionType::from(elem_type.kind())
-                    } else {
-                        unreachable!();
-                    };
-                    return self.deconstruct_constant_array(slice, e_type, None, ty);
-                }
-                _ => {
-                    unimplemented!();
-                }
-            },
-            TyKind::RawPtr(rustc_middle::ty::TypeAndMut {
-                ty,
-                mutbl: rustc_hir::Mutability::Mut,
-            })
-            | TyKind::Ref(_, ty, rustc_hir::Mutability::Mut) => match &val {
-                rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Ptr(p))) => {
-                    let summary_cache_key = format!("{:?}", p).into();
-                    let expression_type: ExpressionType = ExpressionType::from(ty.kind());
-                    let path = Rc::new(
-                        PathEnum::StaticVariable {
-                            def_id: None,
-                            summary_cache_key,
-                            expression_type,
-                        }
-                        .into(),
-                    );
-                    return self.body_visitor.lookup_path_and_refine_result(path, ty);
-                }
-                rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(scalar_int))) => {
-                    let size = scalar_int.size();
-                    // If this is not a Zero-Sized Type (ZST)
-                    if size.bytes() != 0 {
-                        let data = scalar_int.assert_bits(size);
-                        result = self.get_constant_from_scalar(&ty.kind(), data, size.bytes());
-                    } else {
-                        return symbolic_value::BOTTOM.into();
-                    }
-                }
-                _ => unreachable!(),
-            },
-            TyKind::Ref(_, ty, rustc_hir::Mutability::Not) => {
-                return self.get_reference_to_constant(literal, ty);
-            }
-            TyKind::Adt(adt_def, _) if adt_def.is_enum() => {
-                return self.get_enum_variant_as_constant(literal, ty);
-            }
-            TyKind::Tuple(..) | TyKind::Adt(..) => {
-                match val {
-                    rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(
-                        ScalarInt::ZST,
-                    ))) => {
-                        return symbolic_value::BOTTOM.into();
-                    }
-                    rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(
-                        scalar_int,
-                    ))) => {
-                        let size = scalar_int.size().bytes();
-                        let data = scalar_int.assert_bits(scalar_int.size());
-                        let heap_val = self.body_visitor.get_new_heap_block(
-                            Rc::new((size as u128).into()),
-                            Rc::new(1u128.into()),
-                            ty,
-                        );
-                        let path_to_scalar = Path::get_path_to_field_at_offset_0(
-                            self.body_visitor.context.tcx,
-                            // &self.state(),
-                            &Path::get_as_path(heap_val.clone()),
-                            ty,
-                        )
-                        .unwrap_or_else(|| {
+                match ty.kind() {
+                    // Numerical values
+                    TyKind::Bool
+                    | TyKind::Char
+                    | TyKind::Float(..)
+                    | TyKind::Int(..)
+                    | TyKind::Uint(..) => match &val {
+                        rustc_middle::ty::ConstKind::Param(ParamConst { index, .. }) => {
+                            if let Some(gen_args) = self.body_visitor.type_visitor.generic_arguments {
+                                if let Some(arg_val) = gen_args.as_ref().get(*index as usize) {
+                                    return self.visit_constant(None, &ConstantKind::from(arg_val.expect_const()));
+                                }
+                            } else {
+                                // todo: figure out why gen_args is None for generic types when
+                                // the flag MIRAI_START_FRESH is on.
+                                return symbolic_value::BOTTOM.into();
+                            }
                             unreachable!(
-                                "expected serialized constant to be correct at {:?}",
-                                self.body_visitor.current_span
-                            )
-                        });
-                        let scalar_ty = self
+                                "reference to unmatched generic constant argument {:?} {:?}",
+                                literal, self.body_visitor.current_span
+                            );
+                        }
+                        rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(scalar_int))) => {
+                            let size = scalar_int.size();
+                            // If this is not a Zero-Sized Type (ZST)
+                            if size.bytes() != 0 {
+                                let data = scalar_int.assert_bits(size);
+                                result = self.get_constant_from_scalar(&ty.kind(), data, size.bytes());
+                            } else {
+                                return symbolic_value::BOTTOM.into();
+                            }
+                        }
+                        _ => {
+                            unreachable!(
+                                "unexpected kind of literal {:?} {:?}",
+                                literal, self.body_visitor.current_span
+                            );
+                        }
+                    },
+                    // Functions
+                    TyKind::FnDef(def_id, substs)
+                    | TyKind::Closure(def_id, substs)
+                    | TyKind::Generator(def_id, substs, ..) => {
+                        let specialized_ty = self
                             .body_visitor
                             .type_visitor
-                            .get_path_rustc_type(&path_to_scalar, self.body_visitor.current_span);
-                        let scalar_val: Rc<SymbolicValue> = Rc::new(
-                            self.get_constant_from_scalar(&scalar_ty.kind(), data, size)
-                                .clone()
-                                .into(),
+                            .specialize_generic_argument_type(
+                                ty,
+                                &self.body_visitor.type_visitor.generic_argument_map,
+                            );
+                        let substs = self.body_visitor.type_visitor.specialize_substs(
+                            substs,
+                            &self.body_visitor.type_visitor.generic_argument_map,
                         );
-                        self.body_visitor
-                            .state
-                            .update_value_at(path_to_scalar, scalar_val);
-                        return heap_val;
+                        result = self
+                            .visit_function_reference(*def_id, specialized_ty, substs)
+                            .clone();
+                    }
+                    // References
+                    TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Str) => {
+                        if let rustc_middle::ty::ConstKind::Value(ConstValue::Slice { data, start, end }) =
+                            &val
+                        {
+                            return self.get_reference_to_slice(ty.kind(), data, *start, *end);
+                        } else {
+                            debug!("unsupported val of type Ref: {:?}", literal);
+                            unimplemented!();
+                        };
+                    }
+                    TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Array(..)) => {
+                        if let TyKind::Array(elem_type, length) = *t.kind() {
+                            return self
+                                .visit_reference_to_array_constant(&val, literal.ty(), elem_type, length);
+                        } else {
+                            unreachable!(); // match guard
+                        }
+                    }
+                    TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Slice(..)) => match &val {
+                        rustc_middle::ty::ConstKind::Value(ConstValue::Slice { data, start, end }) => {
+                            // The rust compiler should ensure this.
+                            // assume!(*end >= *start);
+                            let slice_len = *end - *start;
+                            let bytes = data
+                                .get_bytes(
+                                    &self.body_visitor.context.tcx,
+                                    // invent a pointer, only the offset is relevant anyway
+                                    mir::interpret::Pointer::new(
+                                        mir::interpret::AllocId(0),
+                                        rustc_target::abi::Size::from_bytes(*start as u64),
+                                    ),
+                                    rustc_target::abi::Size::from_bytes(slice_len as u64),
+                                )
+                                .unwrap();
+
+                            let slice = &bytes[*start..*end];
+                            let e_type = if let TyKind::Slice(elem_type) = t.kind() {
+                                ExpressionType::from(elem_type.kind())
+                            } else {
+                                unreachable!();
+                            };
+                            return self.deconstruct_constant_array(slice, e_type, None, ty);
+                        }
+                        _ => {
+                            unimplemented!();
+                        }
+                    },
+                    TyKind::RawPtr(rustc_middle::ty::TypeAndMut {
+                                       ty,
+                                       mutbl: rustc_hir::Mutability::Mut,
+                                   })
+                    | TyKind::Ref(_, ty, rustc_hir::Mutability::Mut) => match &val {
+                        rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Ptr(p))) => {
+                            let summary_cache_key = format!("{:?}", p).into();
+                            let expression_type: ExpressionType = ExpressionType::from(ty.kind());
+                            let path = Rc::new(
+                                PathEnum::StaticVariable {
+                                    def_id: None,
+                                    summary_cache_key,
+                                    expression_type,
+                                }
+                                    .into(),
+                            );
+                            return self.body_visitor.lookup_path_and_refine_result(path, ty);
+                        }
+                        rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(scalar_int))) => {
+                            let size = scalar_int.size();
+                            // If this is not a Zero-Sized Type (ZST)
+                            if size.bytes() != 0 {
+                                let data = scalar_int.assert_bits(size);
+                                result = self.get_constant_from_scalar(&ty.kind(), data, size.bytes());
+                            } else {
+                                return symbolic_value::BOTTOM.into();
+                            }
+                        }
+                        _ => unreachable!(),
+                    },
+                    TyKind::Ref(_, ty, rustc_hir::Mutability::Not) => {
+                        if let &ConstantKind::Ty(ct) = literal{
+                            return self.get_reference_to_constant(ct, ty)
+                        }
+                    }
+                    TyKind::Adt(adt_def, _) if adt_def.is_enum() => {
+                        if let &ConstantKind::Ty(ct) = literal{
+                            return self.get_enum_variant_as_constant(ct, ty);
+                        }
+                    }
+                    TyKind::Tuple(..) | TyKind::Adt(..) => {
+                        match val {
+                            rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(
+                                                                                      ScalarInt::ZST,
+                                                                                  ))) => {
+                                return symbolic_value::BOTTOM.into();
+                            }
+                            rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(
+                                                                                      scalar_int,
+                                                                                  ))) => {
+                                let size = scalar_int.size().bytes();
+                                let data = scalar_int.assert_bits(scalar_int.size());
+                                let heap_val = self.body_visitor.get_new_heap_block(
+                                    Rc::new((size as u128).into()),
+                                    Rc::new(1u128.into()),
+                                    ty,
+                                );
+                                let path_to_scalar = Path::get_path_to_field_at_offset_0(
+                                    self.body_visitor.context.tcx,
+                                    // &self.state(),
+                                    &Path::get_as_path(heap_val.clone()),
+                                    ty,
+                                )
+                                    .unwrap_or_else(|| {
+                                        unreachable!(
+                                            "expected serialized constant to be correct at {:?}",
+                                            self.body_visitor.current_span
+                                        )
+                                    });
+                                let scalar_ty = self
+                                    .body_visitor
+                                    .type_visitor
+                                    .get_path_rustc_type(&path_to_scalar, self.body_visitor.current_span);
+                                let scalar_val: Rc<SymbolicValue> = Rc::new(
+                                    self.get_constant_from_scalar(&scalar_ty.kind(), data, size)
+                                        .clone()
+                                        .into(),
+                                );
+                                self.body_visitor
+                                    .state
+                                    .update_value_at(path_to_scalar, scalar_val);
+                                return heap_val;
+                            }
+                            _ => {
+                                debug!("span: {:?}", self.body_visitor.current_span);
+                                debug!("type kind {:?}", ty.kind());
+                                debug!("unimplemented constant {:?}", literal);
+                                result = ConstantValue::Top;
+                            }
+                        };
                     }
                     _ => {
                         debug!("span: {:?}", self.body_visitor.current_span);
@@ -853,15 +872,278 @@ where
                         result = ConstantValue::Top;
                     }
                 };
-            }
+
+            },
             _ => {
                 debug!("span: {:?}", self.body_visitor.current_span);
                 debug!("type kind {:?}", ty.kind());
                 debug!("unimplemented constant {:?}", literal);
                 result = ConstantValue::Top;
             }
-        };
+
+        }
         Rc::new(result.clone().into())
+        // if let rustc_middle::ty::ConstKind::Unevaluated(rustc_middle::ty::Unevaluated { def:def_ty, substs:substs, promoted:promoted}) = &literal.try_to_value().unwrap() {
+        //     if def_ty.const_param_did.is_some() {
+        //         val = val.eval(
+        //             self.body_visitor.context.tcx,
+        //             self.body_visitor.type_visitor.get_param_env(),
+        //         );
+        //     } else {
+        //         let def_id = def_ty.def_id_for_type_of();
+        //         let substs = self.body_visitor.type_visitor.specialize_substs(
+        //             substs,
+        //             &self.body_visitor.type_visitor.generic_argument_map,
+        //         );
+        //         self.body_visitor
+        //             .crate_context
+        //             .substs_cache
+        //             .insert(def_id, substs);
+        //         let path: Rc<Path> = match promoted {
+        //             Some(promoted) => {
+        //                 let index = promoted.index();
+        //                 Rc::new(PathEnum::PromotedConstant { ordinal: index }.into())
+        //             }
+        //             None => {
+        //                 debug!("STATIC!");
+        //                 self.body_visitor
+        //                     .import_static(Path::new_static(self.body_visitor.context.tcx, def_id))
+        //             } // None => unreachable!("static is not supported yet"),
+        //         };
+        //         self.body_visitor
+        //             .type_visitor
+        //             .path_ty_cache
+        //             .insert(path.clone(), ty);
+        //         let val_at_path = self.body_visitor.lookup_path_and_refine_result(path, ty);
+        //         if let Expression::Variable { .. } = &val_at_path.expression {
+        //             // Seems like there is nothing at the path, but...
+        //             if self.body_visitor.context.tcx.is_mir_available(def_id) {
+        //                 // The MIR body should have computed something. If that something is
+        //                 // a structure, the value of the path will be unknown (only leaf paths have
+        //                 // known values).
+        //                 return val_at_path;
+        //             }
+        //             // Seems like a lazily serialized constant. Force evaluation.
+        //             val = val.eval(
+        //                 self.body_visitor.context.tcx,
+        //                 self.body_visitor.type_visitor.get_param_env(),
+        //             );
+        //             if let rustc_middle::ty::ConstKind::Unevaluated(..) = &val {
+        //                 // val.eval did not manage to evaluate this, go with unknown.
+        //                 return val_at_path;
+        //             }
+        //         } else {
+        //             return val_at_path;
+        //         }
+        //     }
+        // }
+
+        // let mut result = ConstantValue::Top;
+        // match ty.kind() {
+        //     // Numerical values
+        //     TyKind::Bool
+        //     | TyKind::Char
+        //     | TyKind::Float(..)
+        //     | TyKind::Int(..)
+        //     | TyKind::Uint(..) => match &val {
+        //         rustc_middle::ty::ConstKind::Param(ParamConst { index, .. }) => {
+        //             if let Some(gen_args) = self.body_visitor.type_visitor.generic_arguments {
+        //                 if let Some(arg_val) = gen_args.as_ref().get(*index as usize) {
+        //                     return self.visit_constant(None, &ConstantKind::from(arg_val.expect_const()));
+        //                 }
+        //             } else {
+        //                 // todo: figure out why gen_args is None for generic types when
+        //                 // the flag MIRAI_START_FRESH is on.
+        //                 return symbolic_value::BOTTOM.into();
+        //             }
+        //             unreachable!(
+        //                 "reference to unmatched generic constant argument {:?} {:?}",
+        //                 literal, self.body_visitor.current_span
+        //             );
+        //         }
+        //         rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(scalar_int))) => {
+        //             let size = scalar_int.size();
+        //             // If this is not a Zero-Sized Type (ZST)
+        //             if size.bytes() != 0 {
+        //                 let data = scalar_int.assert_bits(size);
+        //                 result = self.get_constant_from_scalar(&ty.kind(), data, size.bytes());
+        //             } else {
+        //                 return symbolic_value::BOTTOM.into();
+        //             }
+        //         }
+        //         _ => {
+        //             unreachable!(
+        //                 "unexpected kind of literal {:?} {:?}",
+        //                 literal, self.body_visitor.current_span
+        //             );
+        //         }
+        //     },
+        //     // Functions
+        //     TyKind::FnDef(def_id, substs)
+        //     | TyKind::Closure(def_id, substs)
+        //     | TyKind::Generator(def_id, substs, ..) => {
+        //         let specialized_ty = self
+        //             .body_visitor
+        //             .type_visitor
+        //             .specialize_generic_argument_type(
+        //                 ty,
+        //                 &self.body_visitor.type_visitor.generic_argument_map,
+        //             );
+        //         let substs = self.body_visitor.type_visitor.specialize_substs(
+        //             substs,
+        //             &self.body_visitor.type_visitor.generic_argument_map,
+        //         );
+        //         result = self
+        //             .visit_function_reference(*def_id, specialized_ty, substs)
+        //             .clone();
+        //     }
+        //     // References
+        //     TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Str) => {
+        //         if let rustc_middle::ty::ConstKind::Value(ConstValue::Slice { data, start, end }) =
+        //             &val
+        //         {
+        //             return self.get_reference_to_slice(ty.kind(), data, *start, *end);
+        //         } else {
+        //             debug!("unsupported val of type Ref: {:?}", literal);
+        //             unimplemented!();
+        //         };
+        //     }
+        //     TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Array(..)) => {
+        //         if let TyKind::Array(elem_type, length) = *t.kind() {
+        //             return self
+        //                 .visit_reference_to_array_constant(&val, literal.ty(), elem_type, length);
+        //         } else {
+        //             unreachable!(); // match guard
+        //         }
+        //     }
+        //     TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Slice(..)) => match &val {
+        //         rustc_middle::ty::ConstKind::Value(ConstValue::Slice { data, start, end }) => {
+        //             // The rust compiler should ensure this.
+        //             // assume!(*end >= *start);
+        //             let slice_len = *end - *start;
+        //             let bytes = data
+        //                 .get_bytes(
+        //                     &self.body_visitor.context.tcx,
+        //                     // invent a pointer, only the offset is relevant anyway
+        //                     mir::interpret::Pointer::new(
+        //                         mir::interpret::AllocId(0),
+        //                         rustc_target::abi::Size::from_bytes(*start as u64),
+        //                     ),
+        //                     rustc_target::abi::Size::from_bytes(slice_len as u64),
+        //                 )
+        //                 .unwrap();
+        //
+        //             let slice = &bytes[*start..*end];
+        //             let e_type = if let TyKind::Slice(elem_type) = t.kind() {
+        //                 ExpressionType::from(elem_type.kind())
+        //             } else {
+        //                 unreachable!();
+        //             };
+        //             return self.deconstruct_constant_array(slice, e_type, None, ty);
+        //         }
+        //         _ => {
+        //             unimplemented!();
+        //         }
+        //     },
+        //     TyKind::RawPtr(rustc_middle::ty::TypeAndMut {
+        //         ty,
+        //         mutbl: rustc_hir::Mutability::Mut,
+        //     })
+        //     | TyKind::Ref(_, ty, rustc_hir::Mutability::Mut) => match &val {
+        //         rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Ptr(p))) => {
+        //             let summary_cache_key = format!("{:?}", p).into();
+        //             let expression_type: ExpressionType = ExpressionType::from(ty.kind());
+        //             let path = Rc::new(
+        //                 PathEnum::StaticVariable {
+        //                     def_id: None,
+        //                     summary_cache_key,
+        //                     expression_type,
+        //                 }
+        //                 .into(),
+        //             );
+        //             return self.body_visitor.lookup_path_and_refine_result(path, ty);
+        //         }
+        //         rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(scalar_int))) => {
+        //             let size = scalar_int.size();
+        //             // If this is not a Zero-Sized Type (ZST)
+        //             if size.bytes() != 0 {
+        //                 let data = scalar_int.assert_bits(size);
+        //                 result = self.get_constant_from_scalar(&ty.kind(), data, size.bytes());
+        //             } else {
+        //                 return symbolic_value::BOTTOM.into();
+        //             }
+        //         }
+        //         _ => unreachable!(),
+        //     },
+        //     TyKind::Ref(_, ty, rustc_hir::Mutability::Not) => {
+        //         if let &ConstantKind::Ty(ct) = literal{
+        //             return self.get_reference_to_constant(ct, ty)
+        //         }
+        //     }
+        //     TyKind::Adt(adt_def, _) if adt_def.is_enum() => {
+        //         if let &ConstantKind::Ty(ct) = literal{
+        //             return self.get_enum_variant_as_constant(ct, ty);
+        //         }
+        //     }
+        //     TyKind::Tuple(..) | TyKind::Adt(..) => {
+        //         match val {
+        //             rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(
+        //                 ScalarInt::ZST,
+        //             ))) => {
+        //                 return symbolic_value::BOTTOM.into();
+        //             }
+        //             rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(
+        //                 scalar_int,
+        //             ))) => {
+        //                 let size = scalar_int.size().bytes();
+        //                 let data = scalar_int.assert_bits(scalar_int.size());
+        //                 let heap_val = self.body_visitor.get_new_heap_block(
+        //                     Rc::new((size as u128).into()),
+        //                     Rc::new(1u128.into()),
+        //                     ty,
+        //                 );
+        //                 let path_to_scalar = Path::get_path_to_field_at_offset_0(
+        //                     self.body_visitor.context.tcx,
+        //                     // &self.state(),
+        //                     &Path::get_as_path(heap_val.clone()),
+        //                     ty,
+        //                 )
+        //                 .unwrap_or_else(|| {
+        //                     unreachable!(
+        //                         "expected serialized constant to be correct at {:?}",
+        //                         self.body_visitor.current_span
+        //                     )
+        //                 });
+        //                 let scalar_ty = self
+        //                     .body_visitor
+        //                     .type_visitor
+        //                     .get_path_rustc_type(&path_to_scalar, self.body_visitor.current_span);
+        //                 let scalar_val: Rc<SymbolicValue> = Rc::new(
+        //                     self.get_constant_from_scalar(&scalar_ty.kind(), data, size)
+        //                         .clone()
+        //                         .into(),
+        //                 );
+        //                 self.body_visitor
+        //                     .state
+        //                     .update_value_at(path_to_scalar, scalar_val);
+        //                 return heap_val;
+        //             }
+        //             _ => {
+        //                 debug!("span: {:?}", self.body_visitor.current_span);
+        //                 debug!("type kind {:?}", ty.kind());
+        //                 debug!("unimplemented constant {:?}", literal);
+        //                 result = ConstantValue::Top;
+        //             }
+        //         };
+        //     }
+        //     _ => {
+        //         debug!("span: {:?}", self.body_visitor.current_span);
+        //         debug!("type kind {:?}", ty.kind());
+        //         debug!("unimplemented constant {:?}", literal);
+        //         result = ConstantValue::Top;
+        //     }
+        // };
+        // Rc::new(result.clone().into())
     }
 
     fn get_reference_to_slice(
@@ -1110,7 +1392,7 @@ where
                 .get_rustc_place_type(place, self.body_visitor.current_span);
             match &ty.kind() {
                 TyKind::Array(_, len) => {
-                    let len_val = self.visit_constant(None, &len);
+                    let len_val = self.visit_constant(None, &ConstantKind::from(*len));
                     let len_path = Path::new_length(base_path.clone()).refine_paths(&self.state());
                     self.body_visitor.state.update_value_at(len_path, len_val);
                 }
@@ -1475,7 +1757,7 @@ where
                 .get_rustc_place_type(place, self.body_visitor.current_span),
             mir::Operand::Constant(constant) => {
                 let mir::Constant { literal, .. } = constant.borrow();
-                literal.ty
+                literal.ty()
             }
         }
     }
@@ -1672,14 +1954,14 @@ where
                 );
                 self.visit_cast(path, *cast_kind, operand, ty);
             }
-            mir::Rvalue::BinaryOp(bin_op, left_operand, right_operand) => {
+            mir::Rvalue::BinaryOp(bin_op, box(left_operand, right_operand)) => {
                 debug!(
                     "Get RHS Rvalue: BinaryOp({:?}, {:?}, {:?})",
                     bin_op, left_operand, right_operand
                 );
                 self.visit_binary_op(path, *bin_op, left_operand, right_operand);
             }
-            mir::Rvalue::CheckedBinaryOp(bin_op, left_operand, right_operand) => {
+            mir::Rvalue::CheckedBinaryOp(bin_op, box(left_operand, right_operand)) => {
                 debug!(
                     "Get RHS Rvalue: CheckedBinaryOp({:?}, {:?}, {:?})",
                     bin_op, left_operand, right_operand
@@ -1753,7 +2035,7 @@ where
                 let mir::Constant {
                     user_ty, literal, ..
                 } = constant.borrow();
-                let const_value = self.visit_constant(*user_ty, &literal);
+                let const_value = self.visit_constant(*user_ty, literal);
                 self.body_visitor
                     .state
                     .update_value_at(target_path, const_value);
@@ -1947,9 +2229,9 @@ where
     }
 
     // Repeat `operand` for `count` times
-    fn visit_repeat(&mut self, path: Rc<Path>, operand: &mir::Operand<'tcx>, count: &Const<'tcx>) {
+    fn visit_repeat(&mut self, path: Rc<Path>, operand: &mir::Operand<'tcx>, count: &'tcx Const<'tcx>) {
         let length_path = Path::new_length(path.clone());
-        let length_value = self.visit_constant(None, count);
+        let length_value = self.visit_constant(None, &ConstantKind::from(count));
         self.body_visitor
             .state
             .update_value_at(length_path, length_value.clone());
@@ -1971,7 +2253,7 @@ where
                 let mir::Constant {
                     user_ty, literal, ..
                 } = constant.borrow();
-                self.visit_constant(*user_ty, &literal)
+                self.visit_constant(*user_ty, literal)
             }
         }
     }
@@ -2054,12 +2336,12 @@ where
                 let mir::Constant {
                     user_ty, literal, ..
                 } = constant.borrow();
-                let rh_type = literal.ty;
+                let rh_type = literal.ty();
                 debug!(
                     "constant: {:?}, literal: {:?}, user_ty: {:?}, rh_type: {:?}",
                     constant, literal, user_ty, rh_type
                 );
-                let const_value = self.visit_constant(*user_ty, &literal);
+                let const_value = self.visit_constant(*user_ty, literal);
                 if const_value.expression.infer_type() == ExpressionType::NonPrimitive {
                     if let Expression::Reference(rpath) | Expression::Variable { path: rpath, .. } =
                         &const_value.expression

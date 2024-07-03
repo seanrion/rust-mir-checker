@@ -12,7 +12,6 @@ use super::path::Path;
 use super::symbolic_value::SymbolicValue;
 use rug::Integer;
 
-use rustc_ast::ast;
 use rustc_middle::ty::{Ty, TyCtxt, TyKind};
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter, Result};
@@ -336,18 +335,18 @@ impl<'a> From<&TyKind<'a>> for ExpressionType {
     fn from(ty_kind: &TyKind<'a>) -> ExpressionType {
         match ty_kind {
             TyKind::Bool => ExpressionType::Bool,
-            TyKind::Int(ast::IntTy::Isize) => ExpressionType::Isize,
-            TyKind::Int(ast::IntTy::I8) => ExpressionType::I8,
-            TyKind::Int(ast::IntTy::I16) => ExpressionType::I16,
-            TyKind::Int(ast::IntTy::I32) => ExpressionType::I32,
-            TyKind::Int(ast::IntTy::I64) => ExpressionType::I64,
-            TyKind::Int(ast::IntTy::I128) => ExpressionType::I128,
-            TyKind::Uint(ast::UintTy::Usize) => ExpressionType::Usize,
-            TyKind::Uint(ast::UintTy::U8) => ExpressionType::U8,
-            TyKind::Uint(ast::UintTy::U16) => ExpressionType::U16,
-            TyKind::Uint(ast::UintTy::U32) => ExpressionType::U32,
-            TyKind::Uint(ast::UintTy::U64) => ExpressionType::U64,
-            TyKind::Uint(ast::UintTy::U128) => ExpressionType::U128,
+            TyKind::Int(rustc_middle::ty::IntTy::Isize) => ExpressionType::Isize,
+            TyKind::Int(rustc_middle::ty::IntTy::I8) => ExpressionType::I8,
+            TyKind::Int(rustc_middle::ty::IntTy::I16) => ExpressionType::I16,
+            TyKind::Int(rustc_middle::ty::IntTy::I32) => ExpressionType::I32,
+            TyKind::Int(rustc_middle::ty::IntTy::I64) => ExpressionType::I64,
+            TyKind::Int(rustc_middle::ty::IntTy::I128) => ExpressionType::I128,
+            TyKind::Uint(rustc_middle::ty::UintTy::Usize) => ExpressionType::Usize,
+            TyKind::Uint(rustc_middle::ty::UintTy::U8) => ExpressionType::U8,
+            TyKind::Uint(rustc_middle::ty::UintTy::U16) => ExpressionType::U16,
+            TyKind::Uint(rustc_middle::ty::UintTy::U32) => ExpressionType::U32,
+            TyKind::Uint(rustc_middle::ty::UintTy::U64) => ExpressionType::U64,
+            TyKind::Uint(rustc_middle::ty::UintTy::U128) => ExpressionType::U128,
             TyKind::Closure(..)
             | TyKind::Dynamic(..)
             | TyKind::Foreign(..)
