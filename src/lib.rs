@@ -3,7 +3,6 @@
 #![feature(core_intrinsics)]
 #![feature(box_syntax)]
 
-
 extern crate rustc_ast;
 extern crate rustc_data_structures;
 extern crate rustc_driver;
