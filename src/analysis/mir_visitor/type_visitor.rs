@@ -428,7 +428,7 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                 self.tcx.mk_fn_ptr(specialized_fn_sig)
             }
             TyKind::Dynamic(predicates, region) => {
-                let map_predicates = |predicates: &rustc_middle::ty::List<
+                let map_predicates = |predicates: &'tcx rustc_middle::ty::List<
                     Binder<ExistentialPredicate<'tcx>>,
                 >| {
                     self.tcx
@@ -441,7 +441,8 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                                     Binder::bind(ExistentialPredicate::Trait(ExistentialTraitRef {
                                         def_id,
                                         substs: self.specialize_substs(substs, map),
-                                    }))
+                                        }), self.tcx,
+                                    )
                                 }
                                 ExistentialPredicate::Projection(ExistentialProjection {
                                     item_def_id,
@@ -453,7 +454,8 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                                         substs: self.specialize_substs(substs, map),
                                         ty: self.specialize_generic_argument_type(ty, map),
                                     },
-                                )),
+                                ), self.tcx,
+                                ),
                                 ExistentialPredicate::AutoTrait(_) => pred,
                             },
                         ))

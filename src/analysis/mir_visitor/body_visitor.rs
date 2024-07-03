@@ -825,7 +825,7 @@ where
         use rustc_span::hygiene::{ExpnData, ExpnKind, MacroKind};
         if let [span] = &diagnostic_builder.span.primary_spans() {
             if let Some(ExpnData {
-                kind: ExpnKind::Macro(MacroKind::Derive, ..),
+                kind: ExpnKind::Macro{kind:MacroKind::Derive, ..},
                 ..
             }) = span.source_callee()
             {
