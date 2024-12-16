@@ -1734,9 +1734,31 @@ where
             mir::Rvalue::ThreadLocalRef(def_id) => {
                 self.visit_thread_local_ref(*def_id);
             }
+            mir::Rvalue::ShallowInitBox(operand, ty) => {
+                self.visit_shallow_init_box(path, operand, *ty);
+            }
         }
     }
 
+
+
+    fn visit_shallow_init_box(
+        &mut self,
+        path: Rc<Path>,
+        operand: &mir::Operand<'tcx>,
+        ty: Ty<'tcx>,
+    ) {
+        let value_path = Path::new_field(Path::new_field(Path::new_field(path, 0), 0), 0);
+        let ty = self
+            .body_visitor
+            .type_visitor
+            .specialize_generic_argument_type(ty, &self.body_visitor.type_visitor.generic_argument_map);
+        self.body_visitor
+            .type_visitor
+            .set_path_rustc_type(value_path.clone(), ty);
+        // todo: set value_path to boxed type
+        self.visit_use(value_path, operand);
+    }
     fn visit_thread_local_ref(&mut self, def_id: DefId) -> Rc<SymbolicValue> {
         let static_var = Path::new_static(self.body_visitor.context.tcx, def_id);
         SymbolicValue::make_reference(static_var)
@@ -1807,6 +1829,7 @@ where
                 self.body_visitor.get_new_heap_block(len, alignment, ty)
             }
             mir::NullOp::SizeOf => len,
+            mir::NullOp::AlignOf => alignment,
         };
         self.body_visitor.state.update_value_at(path, value);
     }

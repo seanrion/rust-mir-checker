@@ -70,6 +70,10 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
         };
         self.tcx.param_env(env_def_id)
     }
+    
+    pub fn set_path_rustc_type(&mut self, path: Rc<Path>, ty: Ty<'tcx>) {
+        self.path_ty_cache.insert(path, ty);
+    }
 
     /// This is a hacky and brittle way to navigate the Rust compiler's type system.
     /// Eventually it should be replaced with a comprehensive and principled mapping.
