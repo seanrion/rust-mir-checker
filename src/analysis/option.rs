@@ -2,7 +2,6 @@ use crate::analysis::diagnostics::DiagnosticCause;
 use log::warn;
 use std::option::Option;
 
-
 #[derive(Clone, Copy, Debug)]
 pub enum AbstractDomainType {
     Interval,
@@ -12,7 +11,6 @@ pub enum AbstractDomainType {
     PplPolyhedra,
     PplLinearCongruences,
     PkgridPolyhedraLinCongruences,
-    
 }
 
 #[derive(Clone, Debug)]

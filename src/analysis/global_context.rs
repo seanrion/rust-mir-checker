@@ -82,7 +82,7 @@ impl<'tcx, 'compiler> GlobalContext<'tcx, 'compiler> {
     ) -> Option<Self> {
         if analysis_options.show_entries {
             let mut names = HashSet::new();
-            for def_id in tcx.hir().body_owners()  {
+            for def_id in tcx.hir().body_owners() {
                 if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::AssocFn {
                     let name = tcx.item_name(def_id.to_def_id());
                     if !names.contains(&name) {
@@ -108,7 +108,7 @@ impl<'tcx, 'compiler> GlobalContext<'tcx, 'compiler> {
 
         if analysis_options.show_entries_index {
             // let mut names = HashSet::new();
-            for def_id in tcx.hir().body_owners()  {
+            for def_id in tcx.hir().body_owners() {
                 if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::AssocFn {
                     // let name = tcx.item_name(def_id.to_def_id());
                     // if !names.contains(&name) {

@@ -64,13 +64,13 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
     /// Returns a parameter environment for the current function.
     pub fn get_param_env(&self) -> rustc_middle::ty::ParamEnv<'tcx> {
         let env_def_id = if self.tcx.is_closure(self.def_id) {
-            self.tcx.closure_base_def_id(self.def_id)
+            self.tcx.typeck_root_def_id(self.def_id)
         } else {
             self.def_id
         };
         self.tcx.param_env(env_def_id)
     }
-    
+
     pub fn set_path_rustc_type(&mut self, path: Rc<Path>, ty: Ty<'tcx>) {
         self.path_ty_cache.insert(path, ty);
     }
@@ -441,13 +441,12 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                                 ExistentialPredicate::Trait(ExistentialTraitRef {
                                     def_id,
                                     substs,
-                                }) => {
-                                    Binder::dummy(ExistentialPredicate::Trait(ExistentialTraitRef {
+                                }) => Binder::dummy(ExistentialPredicate::Trait(
+                                    ExistentialTraitRef {
                                         def_id,
                                         substs: self.specialize_substs(substs, map),
-                                        })
-                                    )
-                                }
+                                    },
+                                )),
                                 ExistentialPredicate::Projection(ExistentialProjection {
                                     item_def_id,
                                     substs,
@@ -458,8 +457,7 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                                         substs: self.specialize_substs(substs, map),
                                         ty: self.specialize_generic_argument_type(ty, map),
                                     },
-                                )
-                                ),
+                                )),
                                 ExistentialPredicate::AutoTrait(_) => pred,
                             },
                         ))
