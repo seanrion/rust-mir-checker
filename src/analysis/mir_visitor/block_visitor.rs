@@ -1838,7 +1838,7 @@ where
     // E.g. NullaryOp(Box, [usize; 5])
     fn visit_nullary_op(
         &mut self,
-        mut path: Rc<Path>,
+        path: Rc<Path>,
         null_op: mir::NullOp,
         ty: rustc_middle::ty::Ty<'tcx>,
     ) {
@@ -1852,10 +1852,6 @@ where
             };
         let alignment = Rc::new(1u128.into());
         let value = match null_op {
-            mir::NullOp::Box => {
-                path = Path::new_field(Path::new_field(path, 0), 0);
-                self.body_visitor.get_new_heap_block(len, alignment, ty)
-            }
             mir::NullOp::SizeOf => len,
             mir::NullOp::AlignOf => alignment,
         };
