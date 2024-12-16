@@ -611,7 +611,10 @@ where
             &ConstantKind::Ty(ct) => {
                 val = ct.val;
                 match ct.val {
-                    rustc_middle::ty::ConstKind::Unevaluated(rustc_middle::ty::Unevaluated { def, substs, promoted}) => {
+                    rustc_middle::ty::ConstKind::Unevaluated(uv) => {
+                        let substs = uv.substs(self.body_visitor.context.tcx);
+                        let def = uv.def;
+                        let promoted = uv.promoted;
                         if def.const_param_did.is_some() {
                             val = val.eval(
                                 self.body_visitor.context.tcx,
