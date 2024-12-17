@@ -40,11 +40,11 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
 
         // If `deny_warnings` flag is set, change all diagnoses' level to `error`
         // This is used for debugging
-        if self.context.analysis_options.deny_warnings {
-            for diag in &mut diagnostics {
-                diag.builder.level = rustc_errors::Level::Error { lint: true };
-            }
-        }
+        // if self.context.analysis_options.deny_warnings {
+        //     for diag in &mut diagnostics {
+        //         diag.builder.level = rustc_errors::Level::Error { lint: true };
+        //     }
+        // }
 
         // According to `suppress_warnings` flag, filter out warnings that users want to ignore
         let mut diagnostics: Vec<&mut Diagnostic<'_>> =
@@ -52,7 +52,7 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
                 let mut res: Vec<&mut Diagnostic<'_>> = Vec::new();
                 for diag in diagnostics.iter_mut() {
                     if suppressed_warnings.contains(&diag.cause) {
-                        diag.cancel();
+                        // diag.cancel();
                     } else {
                         res.push(diag);
                     }
@@ -71,7 +71,7 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
                     if diag.is_memory_safety {
                         res.push(diag);
                     } else {
-                        diag.cancel();
+                        // diag.cancel();
                     }
                 }
                 res

@@ -44,14 +44,14 @@ impl<O> From<&mir::AssertKind<O>> for DiagnosticCause {
 /// A diagnosis, which consists of the `DiagnosticBuilder` and more information about it
 #[derive(Clone)]
 pub struct Diagnostic<'compiler> {
-    pub builder: DiagnosticBuilder<'compiler>,
+    pub builder: DiagnosticBuilder<'compiler, ()>,
     pub is_memory_safety: bool,
     pub cause: DiagnosticCause,
 }
 
 impl<'compiler> Diagnostic<'compiler> {
     pub fn new(
-        builder: DiagnosticBuilder<'compiler>,
+        builder: DiagnosticBuilder<'compiler, ()>,
         is_memory_safety: bool,
         cause: DiagnosticCause,
     ) -> Self {
@@ -62,7 +62,7 @@ impl<'compiler> Diagnostic<'compiler> {
         }
     }
 
-    pub fn cancel(&mut self) {
+    pub fn cancel(self) {
         self.builder.cancel();
     }
 

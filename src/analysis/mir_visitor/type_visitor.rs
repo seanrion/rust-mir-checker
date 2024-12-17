@@ -14,7 +14,7 @@ use rustc_hir::def_id::DefId;
 use rustc_middle::mir;
 use rustc_middle::ty::subst::{GenericArg, GenericArgKind, InternalSubsts, SubstsRef};
 use rustc_middle::ty::{
-    AdtDef, Binder, ExistentialPredicate, ExistentialProjection, ExistentialTraitRef, FnSig,
+    Binder, ExistentialPredicate, ExistentialProjection, ExistentialTraitRef, FnSig,
     ParamTy, Ty, TyCtxt, TyKind, TypeAndMut,
 };
 use std::collections::HashMap;
@@ -125,10 +125,10 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                     PathSelector::Field(ordinal) => {
                         let bt = Self::get_dereferenced_type(t);
                         match &bt.kind() {
-                            TyKind::Adt(AdtDef { variants, .. }, substs) => {
+                            TyKind::Adt(def, substs) => {
                                 if !is_union(bt) {
-                                    if let Some(variant_index) = variants.last() {
-                                        let variant = &variants[variant_index];
+                                    if let Some(variant_index) = def.variants().last() {
+                                        let variant = &def.variant(variant_index);
                                         if *ordinal < variant.fields.len() {
                                             let field = &variant.fields[*ordinal];
                                             return field.ty(self.tcx, substs);
@@ -143,7 +143,10 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                             }
                             TyKind::Tuple(types) => {
                                 if let Some(gen_arg) = types.get(*ordinal as usize) {
-                                    return gen_arg.expect_ty();
+                                    return *gen_arg;
+                                }
+                                if types.is_empty() {
+                                    return self.tcx.types.never;
                                 }
                             }
                             _ => (),
@@ -358,7 +361,7 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
     pub fn get_type_size(&self, ty: Ty<'tcx>) -> u64 {
         let param_env = self.get_param_env();
         if let Ok(ty_and_layout) = self.tcx.layout_of(param_env.and(ty)) {
-            ty_and_layout.layout.size.bytes()
+            ty_and_layout.layout.size().bytes() as u64
         } else {
             0
         }
@@ -384,7 +387,7 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
             return gen_arg_type;
         }
         match gen_arg_type.kind() {
-            TyKind::Adt(def, substs) => self.tcx.mk_adt(def, self.specialize_substs(substs, map)),
+            TyKind::Adt(def, substs) => self.tcx.mk_adt(*def, self.specialize_substs(substs, map)),
             TyKind::Array(elem_ty, len) => {
                 let specialized_elem_ty = self.specialize_generic_argument_type(*elem_ty, map);
                 self.tcx.mk_ty(TyKind::Array(specialized_elem_ty, *len))
@@ -498,10 +501,10 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                 let specialized_types = bound_types.map_bound(map_types);
                 self.tcx.mk_generator_witness(specialized_types)
             }
-            TyKind::Tuple(substs) => self.tcx.mk_tup(
-                self.specialize_substs(substs, map)
+            TyKind::Tuple(types) => self.tcx.mk_tup(
+                types
                     .iter()
-                    .map(|gen_arg| gen_arg.expect_ty()),
+                    .map(|ty| self.specialize_generic_argument_type(ty, map)),
             ),
             // The projection of an associated type. For example,
             // `<T as Trait<..>>::N`.
@@ -569,7 +572,7 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                 matches!(target.kind(), TyKind::Slice(..))
             }
             TyKind::Adt(def, substs) => {
-                for v in def.variants.iter() {
+                for v in def.variants().iter() {
                     if let Some(field0) = v.fields.get(0) {
                         let field0_ty = field0.ty(self.tcx, substs);
                         if self.starts_with_slice_pointer(&field0_ty.kind()) {
@@ -580,7 +583,7 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                 false
             }
             TyKind::Tuple(substs) => {
-                if let Some(field0_ty) = substs.iter().map(|s| s.expect_ty()).next() {
+                if let Some(field0_ty) = substs.iter().map(|s| s).next() {
                     self.starts_with_slice_pointer(field0_ty.kind())
                 } else {
                     false

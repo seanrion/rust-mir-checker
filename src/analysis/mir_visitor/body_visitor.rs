@@ -179,7 +179,7 @@ where
 
         // Cancel the buffered diagnostics because they have been copied into global context
         // If not, the compiler will emit a bug when dropping them
-        for diagnostic in &mut self.buffered_diagnostics {
+        for diagnostic in self.buffered_diagnostics.drain(..) {
             diagnostic.cancel();
         }
     }
@@ -818,7 +818,7 @@ where
 
     pub fn emit_diagnostic(
         &mut self,
-        mut diagnostic_builder: DiagnosticBuilder<'compiler>,
+        diagnostic_builder: DiagnosticBuilder<'compiler, ()>,
         is_memory_safety: bool,
         cause: DiagnosticCause,
     ) {

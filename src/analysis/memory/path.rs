@@ -357,7 +357,7 @@ impl Path {
                     return Some(path0);
                 }
                 let path0 = Path::new_field(path.clone(), 0);
-                for v in def.variants.iter() {
+                for v in def.variants().iter() {
                     if let Some(field0) = v.fields.get(0) {
                         let field0_ty = field0.ty(tcx, substs);
                         let result = Self::get_path_to_field_at_offset_0(
@@ -372,7 +372,7 @@ impl Path {
                 None
             }
             TyKind::Tuple(substs) => {
-                if let Some(field0_ty) = substs.iter().map(|s| s.expect_ty()).next() {
+                if let Some(field0_ty) = substs.iter().map(|s| s ).next() {
                     let path0 = Path::new_field(path.clone(), 0);
                     return Self::get_path_to_field_at_offset_0(
                         tcx, // environment,

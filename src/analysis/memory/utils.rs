@@ -52,7 +52,7 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
             });
         }
         Adt(def, subs) => {
-            str.push_str(qualified_type_name(tcx, def.did).as_str());
+            str.push_str(qualified_type_name(tcx, def.did()).as_str());
             for sub in subs.into_iter() {
                 if let GenericArgKind::Type(ty) = sub.unpack() {
                     str.push('_');
@@ -162,7 +162,7 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
             str.push_str(&format!("{}", types.len()));
             types.iter().for_each(|t| {
                 str.push('_');
-                append_mangled_type(str, t.expect_ty(), tcx);
+                append_mangled_type(str, t, tcx);
             });
         }
         Param(param_ty) => {
@@ -296,8 +296,8 @@ pub fn is_concrete(ty: &TyKind<'_>) -> bool {
         | TyKind::Opaque(_, gen_args)
         | TyKind::Projection(ProjectionTy {
             substs: gen_args, ..
-        })
-        | TyKind::Tuple(gen_args) => are_concrete(gen_args),
+        }) => are_concrete(gen_args),
+        TyKind::Tuple(types) => types.iter().all(|t| is_concrete(t.kind())),
         TyKind::Ref(_, ty, _) => is_concrete(&ty.kind()),
         _ => true,
     }

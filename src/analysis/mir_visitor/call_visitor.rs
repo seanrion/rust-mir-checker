@@ -575,7 +575,7 @@ where
             .tcx
             .layout_of(param_env.and(*t))
         {
-            Rc::new((ty_and_layout.layout.size.bytes() as u128).into())
+            Rc::new((ty_and_layout.layout.size().bytes() as u128).into())
         } else {
             // SymbolicValue::make_typed_unknown(ExpressionType::U128)
             Rc::new(symbolic_value::TOP)

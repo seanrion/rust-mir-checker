@@ -746,7 +746,7 @@ where
                             end,
                         }) = &val
                         {
-                            return self.get_reference_to_slice(ty.kind(), data, *start, *end);
+                            return self.get_reference_to_slice(ty.kind(), data.inner(), *start, *end);
                         } else {
                             debug!("unsupported val of type Ref: {:?}", literal);
                             unimplemented!();
@@ -773,7 +773,7 @@ where
                             // The rust compiler should ensure this.
                             // assume!(*end >= *start);
                             let slice_len = *end - *start;
-                            let bytes = data
+                            let bytes = data.inner()
                                 .get_bytes(
                                     &self.body_visitor.context.tcx,
                                     // invent a pointer, only the offset is relevant anyway
@@ -965,7 +965,7 @@ where
                     // The Rust compiler should ensure this.
                     assert!(*end > *start);
                     let slice_len = *end - *start;
-                    let bytes = data
+                    let bytes = data.inner()
                         .get_bytes(
                             &self.body_visitor.context.tcx,
                             // invent a pointer, only the offset is relevant anyway
@@ -997,12 +997,12 @@ where
                         .tcx
                         .global_alloc(alloc_id)
                         .unwrap_memory();
-                    let alloc_len = alloc.len() as u64;
+                    let alloc_len = alloc.inner().len() as u64;
                     let offset_bytes = offset.bytes();
                     // The Rust compiler should ensure this.
                     assert!(alloc_len > offset_bytes);
                     let num_bytes = alloc_len - offset_bytes;
-                    let bytes = alloc
+                    let bytes = alloc.inner()
                         .get_bytes(
                             &self.body_visitor.context.tcx,
                             AllocRange {
@@ -1101,7 +1101,7 @@ where
                 unreachable!();
             }
             rustc_middle::ty::ConstKind::Value(ConstValue::Slice { data, start, end }) => {
-                self.get_reference_to_slice(&ty.kind(), *data, *start, *end)
+                self.get_reference_to_slice(&ty.kind(), data.inner(), *start, *end)
             }
             _ => {
                 debug!("span: {:?}", self.body_visitor.current_span);
@@ -1844,7 +1844,7 @@ where
         let len =
             // Get the layout of the type
             if let Ok(ty_and_layout) = self.body_visitor.context.tcx.layout_of(param_env.and(ty)) {
-                Rc::new((ty_and_layout.layout.size.bytes() as u128).into())
+                Rc::new((ty_and_layout.layout.size().bytes() as u128).into())
             } else {
                 SymbolicValue::make_typed_unknown(ExpressionType::U128)
             };
