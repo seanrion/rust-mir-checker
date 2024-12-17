@@ -264,7 +264,7 @@ where
                             if let Some(rustc_type) =
                                 self.body_visitor.type_visitor.path_ty_cache.get(&new_path)
                             {
-                                self.check_within_range(new_path, rustc_type, abstract_value)
+                                self.check_within_range(new_path, *rustc_type, abstract_value)
                             } else {
                                 unreachable!(
                                     "Value that we want to test does not have type infomation"

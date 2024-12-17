@@ -257,7 +257,7 @@ where
                                 );
                             return extract_func_ref(self.block_visitor.visit_function_reference(
                                 *def_id,
-                                ty,
+                                *ty,
                                 specialized_substs,
                             ));
                         }

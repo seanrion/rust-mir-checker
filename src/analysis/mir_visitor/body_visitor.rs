@@ -354,7 +354,7 @@ where
             // Promoting a reference to a reference.
             ordinal += 99;
             let value_path: Rc<Path> = Rc::new(PathEnum::PromotedConstant { ordinal }.into());
-            self.promote_reference(environment, ty, &value_path, local_path, ordinal);
+            self.promote_reference(environment, *ty, &value_path, local_path, ordinal);
             let promoted_value = SymbolicValue::make_from(Expression::Reference(value_path), 1);
             environment.update_value_at(promoted_root.clone(), promoted_value);
         } else {

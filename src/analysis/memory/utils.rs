@@ -127,11 +127,11 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
         Str => str.push_str("str"),
         Array(ty, _) => {
             str.push_str("array_");
-            append_mangled_type(str, ty, tcx);
+            append_mangled_type(str, *ty, tcx);
         }
         Slice(ty) => {
             str.push_str("slice_");
-            append_mangled_type(str, ty, tcx);
+            append_mangled_type(str, *ty, tcx);
         }
         RawPtr(ty_and_mut) => {
             str.push_str("pointer_");
@@ -146,13 +146,13 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
             if *mutability == rustc_hir::Mutability::Mut {
                 str.push_str("mut_");
             }
-            append_mangled_type(str, ty, tcx);
+            append_mangled_type(str, *ty, tcx);
         }
         FnPtr(poly_fn_sig) => {
             let fn_sig = poly_fn_sig.skip_binder();
             str.push_str("fn_ptr_");
             for arg_type in fn_sig.inputs() {
-                append_mangled_type(str, arg_type, tcx);
+                append_mangled_type(str, *arg_type, tcx);
                 str.push('_');
             }
             append_mangled_type(str, fn_sig.output(), tcx);
