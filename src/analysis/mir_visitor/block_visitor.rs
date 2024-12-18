@@ -29,8 +29,8 @@ use crate::analysis::z3_solver::SmtResult;
 use rug::Integer;
 use rustc_hir::def_id::DefId;
 use rustc_middle::mir;
-use rustc_middle::mir::ConstantKind;
 use rustc_middle::mir::interpret::{ConstValue, Scalar};
+use rustc_middle::mir::ConstantKind;
 use rustc_middle::ty::subst::SubstsRef;
 use rustc_middle::ty::{Const, ParamConst, ScalarInt, Ty, TyKind, UserTypeAnnotationIndex};
 use std::borrow::Borrow;
@@ -311,7 +311,8 @@ where
             Ref(_, _, place) | AddressOf(_, place) | Len(place) | Discriminant(place) => {
                 Some(vec![place.local])
             }
-            BinaryOp(_, box(operand1, operand2)) | CheckedBinaryOp(_, box(operand1, operand2)) => {
+            BinaryOp(_, box (operand1, operand2))
+            | CheckedBinaryOp(_, box (operand1, operand2)) => {
                 let res1 = self.extract_local_from_operand(operand1);
                 let res2 = self.extract_local_from_operand(operand2);
                 match (res1, res2) {
@@ -608,7 +609,12 @@ where
         let mut result = ConstantValue::Top;
         if let &ConstantKind::Ty(ct) = literal {
             val = ct.val;
-            if let rustc_middle::ty::ConstKind::Unevaluated(rustc_middle::ty::Unevaluated { def, substs, promoted }) = ct.val {
+            if let rustc_middle::ty::ConstKind::Unevaluated(rustc_middle::ty::Unevaluated {
+                def,
+                substs,
+                promoted,
+            }) = ct.val
+            {
                 if def.const_param_did.is_some() {
                     val = val.eval(
                         self.body_visitor.context.tcx,
@@ -631,8 +637,10 @@ where
                         }
                         None => {
                             debug!("STATIC!");
-                            self.body_visitor
-                                .import_static(Path::new_static(self.body_visitor.context.tcx, def_id))
+                            self.body_visitor.import_static(Path::new_static(
+                                self.body_visitor.context.tcx,
+                                def_id,
+                            ))
                         } // None => unreachable!("static is not supported yet"),
                     };
                     self.body_visitor
@@ -672,7 +680,10 @@ where
                     rustc_middle::ty::ConstKind::Param(ParamConst { index, .. }) => {
                         if let Some(gen_args) = self.body_visitor.type_visitor.generic_arguments {
                             if let Some(arg_val) = gen_args.as_ref().get(*index as usize) {
-                                return self.visit_constant(None, &ConstantKind::from(arg_val.expect_const()));
+                                return self.visit_constant(
+                                    None,
+                                    &ConstantKind::from(arg_val.expect_const()),
+                                );
                             }
                         } else {
                             // todo: figure out why gen_args is None for generic types when
@@ -684,7 +695,9 @@ where
                             literal, self.body_visitor.current_span
                         );
                     }
-                    rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(scalar_int))) => {
+                    rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(
+                        scalar_int,
+                    ))) => {
                         let size = scalar_int.size();
                         // If this is not a Zero-Sized Type (ZST)
                         if size.bytes() != 0 {
@@ -722,8 +735,11 @@ where
                 }
                 // References
                 TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Str) => {
-                    if let rustc_middle::ty::ConstKind::Value(ConstValue::Slice { data, start, end }) =
-                        &val
+                    if let rustc_middle::ty::ConstKind::Value(ConstValue::Slice {
+                        data,
+                        start,
+                        end,
+                    }) = &val
                     {
                         return self.get_reference_to_slice(ty.kind(), data, *start, *end);
                     } else {
@@ -733,8 +749,12 @@ where
                 }
                 TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Array(..)) => {
                     if let TyKind::Array(elem_type, length) = *t.kind() {
-                        return self
-                            .visit_reference_to_array_constant(&val, literal.ty(), elem_type, length);
+                        return self.visit_reference_to_array_constant(
+                            &val,
+                            literal.ty(),
+                            elem_type,
+                            length,
+                        );
                     } else {
                         unreachable!(); // match guard
                     }
@@ -755,7 +775,7 @@ where
                                 rustc_target::abi::Size::from_bytes(slice_len as u64),
                             )
                             .unwrap();
-    
+
                         let slice = &bytes[*start..*end];
                         let e_type = if let TyKind::Slice(elem_type) = t.kind() {
                             ExpressionType::from(elem_type.kind())
@@ -786,7 +806,9 @@ where
                         );
                         return self.body_visitor.lookup_path_and_refine_result(path, ty);
                     }
-                    rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(scalar_int))) => {
+                    rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Int(
+                        scalar_int,
+                    ))) => {
                         let size = scalar_int.size();
                         // If this is not a Zero-Sized Type (ZST)
                         if size.bytes() != 0 {
@@ -833,10 +855,10 @@ where
                                     self.body_visitor.current_span
                                 )
                             });
-                            let scalar_ty = self
-                                .body_visitor
-                                .type_visitor
-                                .get_path_rustc_type(&path_to_scalar, self.body_visitor.current_span);
+                            let scalar_ty = self.body_visitor.type_visitor.get_path_rustc_type(
+                                &path_to_scalar,
+                                self.body_visitor.current_span,
+                            );
                             let scalar_val: Rc<SymbolicValue> = Rc::new(
                                 self.get_constant_from_scalar(&scalar_ty.kind(), data, size)
                                     .clone()
@@ -1112,7 +1134,7 @@ where
                 .get_rustc_place_type(place, self.body_visitor.current_span);
             match &ty.kind() {
                 TyKind::Array(_, len) => {
-                    let len_val = self.visit_constant(None,  &ConstantKind::from(*len));
+                    let len_val = self.visit_constant(None, &ConstantKind::from(*len));
                     let len_path = Path::new_length(base_path.clone()).refine_paths(&self.state());
                     self.body_visitor.state.update_value_at(len_path, len_val);
                 }
@@ -1674,14 +1696,14 @@ where
                 );
                 self.visit_cast(path, *cast_kind, operand, ty);
             }
-            mir::Rvalue::BinaryOp(bin_op, box(left_operand, right_operand)) => {
+            mir::Rvalue::BinaryOp(bin_op, box (left_operand, right_operand)) => {
                 debug!(
                     "Get RHS Rvalue: BinaryOp({:?}, {:?}, {:?})",
                     bin_op, left_operand, right_operand
                 );
                 self.visit_binary_op(path, *bin_op, left_operand, right_operand);
             }
-            mir::Rvalue::CheckedBinaryOp(bin_op, box(left_operand, right_operand)) => {
+            mir::Rvalue::CheckedBinaryOp(bin_op, box (left_operand, right_operand)) => {
                 debug!(
                     "Get RHS Rvalue: CheckedBinaryOp({:?}, {:?}, {:?})",
                     bin_op, left_operand, right_operand
@@ -1949,9 +1971,14 @@ where
     }
 
     // Repeat `operand` for `count` times
-    fn visit_repeat(&mut self, path: Rc<Path>, operand: &mir::Operand<'tcx>, count: &'tcx Const<'tcx>) {
+    fn visit_repeat(
+        &mut self,
+        path: Rc<Path>,
+        operand: &mir::Operand<'tcx>,
+        count: &'tcx Const<'tcx>,
+    ) {
         let length_path = Path::new_length(path.clone());
-        let length_value = self.visit_constant(None,  &ConstantKind::from(count));
+        let length_value = self.visit_constant(None, &ConstantKind::from(count));
         self.body_visitor
             .state
             .update_value_at(length_path, length_value.clone());
