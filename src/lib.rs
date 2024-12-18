@@ -2,7 +2,7 @@
 #![feature(box_patterns)]
 #![feature(core_intrinsics)]
 #![feature(box_syntax)]
-#![feature(vec_remove_item)]
+
 
 extern crate rustc_ast;
 extern crate rustc_data_structures;
