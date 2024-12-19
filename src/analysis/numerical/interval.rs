@@ -7,9 +7,9 @@ use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Shl, Shr, Sub};
 /// Either `∞`, `-∞`, or an arbitrary precision integer
 #[derive(Clone, Eq, PartialEq)]
 pub enum Bound {
-    INF,          // Positive infinity
+    Infinity,          // Positive infinity
     Int(Integer), // Arbitrary precision integer
-    NINF,         // Negative infinity
+    NegativeInfinity,         // Negative infinity
 }
 
 use Bound::*;
@@ -23,8 +23,8 @@ impl Bound {
 impl fmt::Debug for Bound {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value = match self {
-            INF => String::from("∞"),
-            NINF => String::from("-∞"),
+            Infinity => String::from("∞"),
+            NegativeInfinity => String::from("-∞"),
             Int(n) => n.to_string(),
         };
         write!(f, "{}", value)
@@ -37,8 +37,8 @@ impl Ord for Bound {
             Ordering::Equal
         } else {
             match (self, other) {
-                (INF, _) | (_, NINF) => Ordering::Greater,
-                (NINF, _) | (_, INF) => Ordering::Less,
+                (Infinity, _) | (_, NegativeInfinity) => Ordering::Greater,
+                (NegativeInfinity, _) | (_, Infinity) => Ordering::Less,
                 (Int(a), Int(b)) => a.cmp(b),
             }
         }
@@ -75,8 +75,8 @@ impl Add for Bound {
     fn add(self, other: Self) -> Self {
         match (self, other) {
             // FIXME Here, `INF + NINF` = INF, does it matter?
-            (INF, _) | (_, INF) => Self::INF,
-            (NINF, _) | (_, NINF) => Self::NINF,
+            (Infinity, _) | (_, Infinity) => Self::Infinity,
+            (NegativeInfinity, _) | (_, NegativeInfinity) => Self::NegativeInfinity,
             (Int(a), Int(b)) => Self::Int(a + b),
         }
     }
@@ -88,8 +88,8 @@ impl Sub for Bound {
     fn sub(self, other: Self) -> Self {
         match (self, other) {
             // FIXME Here `INF - INF = INF`, `NINF - NINF = INF`, does it matter?
-            (INF, _) | (_, NINF) => Self::INF,
-            (NINF, _) | (_, INF) => Self::NINF,
+            (Infinity, _) | (_, NegativeInfinity) => Self::Infinity,
+            (NegativeInfinity, _) | (_, Infinity) => Self::NegativeInfinity,
             (Int(a), Int(b)) => Self::Int(a - b),
         }
     }
@@ -100,37 +100,37 @@ impl Mul for Bound {
 
     fn mul(self, rhs: Self) -> Self {
         enum Sign {
-            POSITIVE,
-            NEGATIVE,
-            ZERO,
+            Positive,
+            Negative,
+            Zero,
         }
 
         use Sign::*;
 
         let sign_lhs = match self {
-            INF => POSITIVE,
-            NINF => NEGATIVE,
-            Int(ref n) if *n > 0 => POSITIVE,
-            Int(ref n) if *n < 0 => NEGATIVE,
-            Int(_) => ZERO,
+            Infinity => Positive,
+            NegativeInfinity => Negative,
+            Int(ref n) if *n > 0 => Positive,
+            Int(ref n) if *n < 0 => Negative,
+            Int(_) => Zero,
         };
         let sign_rhs = match rhs {
-            INF => POSITIVE,
-            NINF => NEGATIVE,
-            Int(ref n) if *n > 0 => POSITIVE,
-            Int(ref n) if *n < 0 => NEGATIVE,
-            Int(_) => ZERO,
+            Infinity => Positive,
+            NegativeInfinity => Negative,
+            Int(ref n) if *n > 0 => Positive,
+            Int(ref n) if *n < 0 => Negative,
+            Int(_) => Zero,
         };
         let sign = match (sign_lhs, sign_rhs) {
-            (ZERO, _) | (_, ZERO) => ZERO,
-            (POSITIVE, POSITIVE) | (NEGATIVE, NEGATIVE) => POSITIVE,
-            (POSITIVE, NEGATIVE) | (NEGATIVE, POSITIVE) => NEGATIVE,
+            (Zero, _) | (_, Zero) => Zero,
+            (Positive, Positive) | (Negative, Negative) => Positive,
+            (Positive, Negative) | (Negative, Positive) => Negative,
         };
         match (self, rhs) {
-            (INF, _) | (_, INF) | (NINF, _) | (_, NINF) => match sign {
-                POSITIVE => INF,
-                NEGATIVE => NINF,
-                ZERO => Int(Integer::from(0)),
+            (Infinity, _) | (_, Infinity) | (NegativeInfinity, _) | (_, NegativeInfinity) => match sign {
+                Positive => Infinity,
+                Negative => NegativeInfinity,
+                Zero => Int(Integer::from(0)),
             },
             (Int(a), Int(b)) => Self::Int(a * b),
         }
@@ -142,40 +142,40 @@ impl Div for Bound {
 
     fn div(self, rhs: Self) -> Self {
         enum Sign {
-            POSITIVE,
-            NEGATIVE,
-            ZERO,
+            Positive,
+            Negative,
+            Zero,
         }
 
         use Sign::*;
 
         let sign_lhs = match self {
-            INF => POSITIVE,
-            NINF => NEGATIVE,
-            Int(ref n) if *n > 0 => POSITIVE,
-            Int(ref n) if *n < 0 => NEGATIVE,
-            Int(_) => ZERO,
+            Infinity => Positive,
+            NegativeInfinity => Negative,
+            Int(ref n) if *n > 0 => Positive,
+            Int(ref n) if *n < 0 => Negative,
+            Int(_) => Zero,
         };
         let sign_rhs = match rhs {
-            INF => POSITIVE,
-            NINF => NEGATIVE,
-            Int(ref n) if *n > 0 => POSITIVE,
-            Int(ref n) if *n < 0 => NEGATIVE,
-            Int(_) => ZERO,
+            Infinity => Positive,
+            NegativeInfinity => Negative,
+            Int(ref n) if *n > 0 => Positive,
+            Int(ref n) if *n < 0 => Negative,
+            Int(_) => Zero,
         };
         let sign = match (sign_lhs, sign_rhs) {
-            (ZERO, _) => ZERO,
-            (POSITIVE, POSITIVE) | (NEGATIVE, NEGATIVE) => POSITIVE,
-            (POSITIVE, NEGATIVE) | (NEGATIVE, POSITIVE) => NEGATIVE,
-            (_, ZERO) => panic!("Division by zero"),
+            (Zero, _) => Zero,
+            (Positive, Positive) | (Negative, Negative) => Positive,
+            (Positive, Negative) | (Negative, Positive) => Negative,
+            (_, Zero) => panic!("Division by zero"),
         };
         match (self, rhs) {
-            (INF, _) | (NINF, _) => match sign {
-                POSITIVE => INF,
-                NEGATIVE => NINF,
-                ZERO => Int(Integer::from(0)),
+            (Infinity, _) | (NegativeInfinity, _) => match sign {
+                Positive => Infinity,
+                Negative => NegativeInfinity,
+                Zero => Int(Integer::from(0)),
             },
-            (_, INF) | (_, NINF) => Int(Integer::from(0)),
+            (_, Infinity) | (_, NegativeInfinity) => Int(Integer::from(0)),
             (Int(a), Int(b)) => Self::Int(a / b),
         }
     }
@@ -202,8 +202,8 @@ impl fmt::Debug for Interval {
 }
 
 impl Interval {
-    const INF: Bound = Bound::INF;
-    const NINF: Bound = Bound::NINF;
+    const INF: Bound = Bound::Infinity;
+    const NINF: Bound = Bound::NegativeInfinity;
 
     pub fn new(low: Bound, high: Bound) -> Self {
         Interval { high, low }
@@ -531,11 +531,11 @@ mod tests {
 
     #[test]
     fn test_integer_cmp() {
-        let ninf = Bound::NINF;
-        let a = Bound::from(-1 as i128);
-        let b = Bound::from(0 as i128);
-        let c = Bound::from(1 as i128);
-        let inf = Bound::INF;
+        let ninf = Bound::NegativeInfinity;
+        let a = Bound::from(-1_i128);
+        let b = Bound::from(0_i128);
+        let c = Bound::from(1_i128);
+        let inf = Bound::Infinity;
         assert!(ninf < a && a < b && b < c && c < inf);
     }
 }

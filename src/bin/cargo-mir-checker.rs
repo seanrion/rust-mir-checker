@@ -1,7 +1,7 @@
 /// This file is derived from miri:
 /// https://github.com/rust-lang/miri/blob/master/src/bin/cargo-miri.rs
 use rust_mir_checker::utils;
-use serde_json;
+
 use std::ffi::OsString;
 use std::path::Path;
 use std::process::Command;

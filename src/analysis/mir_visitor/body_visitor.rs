@@ -719,24 +719,16 @@ where
     pub fn get_var_name(&self, operand: &mir::Operand<'tcx>) -> String {
         for var_info in &self.wto.get_mir().var_debug_info {
             match var_info.value {
-                mir::VarDebugInfoContents::Place(place1) => match operand {
-                    mir::Operand::Copy(place2) | mir::Operand::Move(place2) => {
-                        if place1 == *place2 {
-                            return var_info.name.to_ident_string();
-                        }
-                        return format!("{:?}", operand);
+                mir::VarDebugInfoContents::Place(place1) => if let mir::Operand::Copy(place2) | mir::Operand::Move(place2) = operand {
+                    if place1 == *place2 {
+                        return var_info.name.to_ident_string();
                     }
-                    _ => return format!("{:?}", operand),
                 },
-                mir::VarDebugInfoContents::Const(constant1) => match operand {
-                    mir::Operand::Constant(constant2) => {
-                        if constant1 == **constant2 {
-                            return var_info.name.to_ident_string();
-                        }
-                        return format!("{:?}", operand);
+                mir::VarDebugInfoContents::Const(constant1) => if let mir::Operand::Constant(constant2) = operand {
+                    if constant1 == **constant2 {
+                        return var_info.name.to_ident_string();
                     }
-                    _ => return format!("{:?}", operand),
-                },
+                }
             }
         }
         // Get here if not found
@@ -812,7 +804,7 @@ where
                     self.get_var_name(r)
                 )
             }
-            _ => format!("{}", assert_kind.description()),
+            _ => assert_kind.description().to_string(),
         }
     }
 

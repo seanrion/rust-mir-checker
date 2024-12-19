@@ -91,7 +91,7 @@ where
                     let cond_val = cond_val.clone();
                     let check_result = match msg {
                         mir::AssertKind::Overflow(..) => {
-                            self.check_overflow(cond_val.clone(), *expected, abstract_value)
+                            self.check_overflow(cond_val, *expected, abstract_value)
                         }
                         _ => self.check_assert_condition(cond_val, *expected, abstract_value),
                     };
@@ -146,7 +146,7 @@ where
 
         let result;
         debug!("In converting assertion condition: {:?}", cond);
-        let z3_cond_expr = if expect == false {
+        let z3_cond_expr = if !expect {
             solver.make_not_z3_expression(
                 solver.convert_to_bool_sort(solver.get_symbolic_as_z3_expression(&cond)),
             )

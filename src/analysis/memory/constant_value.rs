@@ -88,7 +88,7 @@ impl ConstantValue {
             function_id: Some(function_id),
             generic_arguments,
             known_name,
-            function_name: Rc::new(function_name.clone()),
+            function_name: Rc::new(function_name),
         }))
     }
 

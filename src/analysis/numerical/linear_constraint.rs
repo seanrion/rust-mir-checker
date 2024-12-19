@@ -5,7 +5,7 @@ use crate::analysis::numerical::apron_domain::{
     ApronAbstractDomain, ApronDomainType, GetManagerTrait,
 };
 use crate::analysis::numerical::lattice::LatticeTrait;
-use apron_sys;
+
 use foreign_types::ForeignType;
 use rug::Integer;
 use std::collections::BTreeMap;
@@ -250,7 +250,7 @@ fn refine_symbolic_value(val: Rc<SymbolicValue>) -> Rc<SymbolicValue> {
         }
         _ => {}
     }
-    return val;
+    val
 }
 
 fn symbolic_to_expression(val: Rc<SymbolicValue>) -> Result<LinearExpression, &'static str> {
@@ -445,7 +445,7 @@ impl TryFrom<Rc<SymbolicValue>> for LinearConstraintSystem {
                     LinearConstraint::Equality(expr).into()
                 }
                 Expression::Widen { operand, .. } => {
-                    Self::try_from(operand.clone()).unwrap().into()
+                    Self::try_from(operand.clone()).unwrap()
                 }
                 // An expression `lhs <= rhs`, equivalent to `lhs - rhs <= 0`
                 Expression::LessOrEqual { left, right } => {

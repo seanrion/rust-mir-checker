@@ -497,7 +497,7 @@ where
                         // no need for an explicit deref in a qualifier
                         return Path::new_qualified(
                             base_qualifier.clone(),
-                            refined_selector.clone(),
+                            refined_selector,
                         );
                     }
                 }

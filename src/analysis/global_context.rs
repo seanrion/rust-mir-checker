@@ -97,7 +97,7 @@ impl<'tcx, 'compiler> GlobalContext<'tcx, 'compiler> {
                 writeln!(&mut output, "{}", name).expect("Something Wrong in write output");
             }
             if let Some(path) = analysis_options.output_file {
-                let path = String::from(path);
+                let path = path;
                 let mut file = File::create(path).expect("output_file dose not exists");
                 write!(file, "{}", output).expect("Something Wrong in write output");
             } else {

@@ -335,7 +335,7 @@ where
                         self.block_visitor
                             .body_visitor
                             .state
-                            .update_value_at(target_path.clone(), result);
+                            .update_value_at(target_path, result);
                         // let exit_condition = self.block_visitor.state.entry_condition.clone();
                         // self.block_visitor
                         //     .state
@@ -631,7 +631,7 @@ where
         if !body_visitor.state.is_bottom() {
             let warning = body_visitor.context.session.struct_span_warn(
                 body_visitor.current_span,
-                format!("[MirChecker] Possible error: run into panic code").as_str(),
+                "[MirChecker] Possible error: run into panic code".to_string().as_str(),
             );
             body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Panic);
         }
@@ -671,7 +671,7 @@ where
         let array_len = Path::new_length(array.clone()).refine_paths(&body_visitor.state);
         let array_len_val = SymbolicValue::make_from(
             Expression::Variable {
-                path: array_len.clone(),
+                path: array_len,
                 var_type: ExpressionType::Usize,
             },
             1,
@@ -694,7 +694,7 @@ where
             CheckerResult::Unsafe => {
                 let error = body_visitor.context.session.struct_span_warn(
                     body_visitor.current_span,
-                    format!("[MirChecker] Provably error: index out of bound",).as_str(),
+                    "[MirChecker] Provably error: index out of bound".to_string().as_str(),
                 );
                 body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
                 return;
@@ -702,7 +702,7 @@ where
             CheckerResult::Warning => {
                 let warning = body_visitor.context.session.struct_span_warn(
                     body_visitor.current_span,
-                    format!("[MirChecker] Possible error: index out of bound").as_str(),
+                    "[MirChecker] Possible error: index out of bound".to_string().as_str(),
                 );
                 body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
@@ -710,7 +710,7 @@ where
 
         let source =
             Path::new_index(array.clone(), index_val.clone()).refine_paths(&body_visitor.state);
-        let ref_source = SymbolicValue::make_from(Expression::Reference(source).into(), 1);
+        let ref_source = SymbolicValue::make_from(Expression::Reference(source), 1);
         self.block_visitor
             .body_visitor
             .state

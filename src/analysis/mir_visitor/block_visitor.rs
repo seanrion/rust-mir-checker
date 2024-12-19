@@ -88,7 +88,7 @@ where
         let def_id = body_visitor.def_id;
         Self {
             mir: body_visitor.wto.get_mir(),
-            def_id: def_id,
+            def_id,
             body_visitor,
             current_block: mir::BasicBlock::from_usize(0),
         }
@@ -861,7 +861,7 @@ where
                             );
                             let scalar_val: Rc<SymbolicValue> = Rc::new(
                                 self.get_constant_from_scalar(&scalar_ty.kind(), data, size)
-                                    .clone()
+                                    
                                     .into(),
                             );
                             self.body_visitor
@@ -885,7 +885,7 @@ where
                 }
             };
         }
-        Rc::new(result.clone().into())
+        Rc::new(result.into())
     }
 
     fn get_reference_to_slice(
@@ -1360,7 +1360,7 @@ where
                 self.body_visitor
                     .context
                     .dropped_heaps
-                    .insert(related_heap.clone());
+                    .insert(related_heap);
             }
         }
     }
@@ -1435,11 +1435,7 @@ where
         let func_const = ConstantValue::Function(func_ref_to_call);
         let func_const_args = &self.get_function_constant_args(&actual_args);
 
-        let destination_path = if let Some(dest) = destination {
-            Some(self.get_path_for_place(&dest.0))
-        } else {
-            None
-        };
+        let destination_path = destination.as_ref().map(|dest| self.get_path_for_place(&dest.0));
 
         debug!("actual_args: {:?}", actual_args);
         debug!("actual_argument_types: {:?}", actual_argument_types);
@@ -1457,7 +1453,7 @@ where
         call_visitor.args = args;
         call_visitor.actual_args = &actual_args;
         call_visitor.actual_argument_types = &actual_argument_types;
-        call_visitor.destination = destination.clone();
+        call_visitor.destination = *destination;
         call_visitor.callee_fun_val = func_to_call;
         call_visitor.function_constant_args = func_const_args;
         debug!("Calling function {:?}", call_visitor.callee_func_ref);
@@ -2306,7 +2302,7 @@ where
                 debug!("copying {:?} to {:?}", value, target_path);
                 self.body_visitor.state.update_value_at(target_path, value);
             }
-            return;
+            
         }
     }
 
