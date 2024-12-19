@@ -69,7 +69,7 @@ pub struct FunctionReference {
 /// Constructors
 impl ConstantValue {
     /// Returns a constant value that is a reference to a function
-    pub fn for_function<'a, 'tcx, 'compiler>(
+    pub fn for_function<'tcx>(
         function_id: usize,
         def_id: DefId,
         generic_args: Option<SubstsRef<'tcx>>,
@@ -400,7 +400,7 @@ impl<'tcx> ConstantValueCache<'tcx> {
 
     /// Given the MIR DefId of a function return the unique (cached) ConstantValue that corresponds
     /// to the function identified by that DefId.
-    pub fn get_function_constant_for<'a, 'compiler>(
+    pub fn get_function_constant_for(
         &mut self,
         def_id: DefId,
         ty: Ty<'tcx>,

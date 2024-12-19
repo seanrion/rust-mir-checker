@@ -11,7 +11,6 @@ use std::fmt;
 use std::rc::Rc;
 use std::sync::Mutex;
 
-
 lazy_static! {
     static ref Z3_MUTEX: Mutex<()> = Mutex::new(());
 }

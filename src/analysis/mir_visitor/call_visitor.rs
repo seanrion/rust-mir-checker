@@ -631,7 +631,9 @@ where
         if !body_visitor.state.is_bottom() {
             let warning = body_visitor.context.session.struct_span_warn(
                 body_visitor.current_span,
-                "[MirChecker] Possible error: run into panic code".to_string().as_str(),
+                "[MirChecker] Possible error: run into panic code"
+                    .to_string()
+                    .as_str(),
             );
             body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Panic);
         }
@@ -694,7 +696,9 @@ where
             CheckerResult::Unsafe => {
                 let error = body_visitor.context.session.struct_span_warn(
                     body_visitor.current_span,
-                    "[MirChecker] Provably error: index out of bound".to_string().as_str(),
+                    "[MirChecker] Provably error: index out of bound"
+                        .to_string()
+                        .as_str(),
                 );
                 body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
                 return;
@@ -702,7 +706,9 @@ where
             CheckerResult::Warning => {
                 let warning = body_visitor.context.session.struct_span_warn(
                     body_visitor.current_span,
-                    "[MirChecker] Possible error: index out of bound".to_string().as_str(),
+                    "[MirChecker] Possible error: index out of bound"
+                        .to_string()
+                        .as_str(),
                 );
                 body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }

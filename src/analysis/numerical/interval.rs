@@ -7,9 +7,9 @@ use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Shl, Shr, Sub};
 /// Either `∞`, `-∞`, or an arbitrary precision integer
 #[derive(Clone, Eq, PartialEq)]
 pub enum Bound {
-    Infinity,          // Positive infinity
-    Int(Integer), // Arbitrary precision integer
-    NegativeInfinity,         // Negative infinity
+    Infinity,         // Positive infinity
+    Int(Integer),     // Arbitrary precision integer
+    NegativeInfinity, // Negative infinity
 }
 
 use Bound::*;
@@ -127,11 +127,13 @@ impl Mul for Bound {
             (Positive, Negative) | (Negative, Positive) => Negative,
         };
         match (self, rhs) {
-            (Infinity, _) | (_, Infinity) | (NegativeInfinity, _) | (_, NegativeInfinity) => match sign {
-                Positive => Infinity,
-                Negative => NegativeInfinity,
-                Zero => Int(Integer::from(0)),
-            },
+            (Infinity, _) | (_, Infinity) | (NegativeInfinity, _) | (_, NegativeInfinity) => {
+                match sign {
+                    Positive => Infinity,
+                    Negative => NegativeInfinity,
+                    Zero => Int(Integer::from(0)),
+                }
+            }
             (Int(a), Int(b)) => Self::Int(a * b),
         }
     }

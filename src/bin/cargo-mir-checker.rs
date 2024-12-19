@@ -51,10 +51,10 @@ fn get_arg_flag_value(name: &str) -> Option<String> {
         if suffix.is_empty() {
             // This argument is exactly `name`; the next one is the value.
             return args.next();
-        } else if suffix.starts_with('=') {
+        } else if let Some(stripped) = suffix.strip_prefix('=') {
             // This argument is `name=value`; get the value.
             // Strip leading `=`.
-            return Some(suffix[1..].to_owned());
+            return Some(stripped.to_owned());
         }
     }
 }
@@ -101,9 +101,7 @@ fn current_crate() -> cargo_metadata::Package {
                 "This seems to be a workspace, which is not supported by cargo-miri".to_string(),
             )
         });
-    let package = metadata.packages.remove(package_index);
-
-    package
+    metadata.packages.remove(package_index)
 }
 
 fn mir_checker() -> Command {

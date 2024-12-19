@@ -26,6 +26,7 @@ use crate::analysis::numerical::apron_domain::{
 };
 use crate::analysis::numerical::linear_constraint::LinearConstraintSystem;
 use crate::analysis::z3_solver::SmtResult;
+use core::ops::Range;
 use rug::Integer;
 use rustc_hir::def_id::DefId;
 use rustc_middle::mir;
@@ -607,7 +608,7 @@ where
         let ty = literal.ty();
         let mut val;
         let mut result = ConstantValue::Top;
-        if let &ConstantKind::Ty(ct) = literal {
+        if let ConstantKind::Ty(ct) = *literal {
             val = ct.val;
             if let rustc_middle::ty::ConstKind::Unevaluated(rustc_middle::ty::Unevaluated {
                 def,
@@ -861,7 +862,6 @@ where
                             );
                             let scalar_val: Rc<SymbolicValue> = Rc::new(
                                 self.get_constant_from_scalar(&scalar_ty.kind(), data, size)
-                                    
                                     .into(),
                             );
                             self.body_visitor
@@ -1357,10 +1357,7 @@ where
                 self.body_visitor
                     .emit_diagnostic(warning, true, DiagnosticCause::Memory);
             } else {
-                self.body_visitor
-                    .context
-                    .dropped_heaps
-                    .insert(related_heap);
+                self.body_visitor.context.dropped_heaps.insert(related_heap);
             }
         }
     }
@@ -1435,7 +1432,9 @@ where
         let func_const = ConstantValue::Function(func_ref_to_call);
         let func_const_args = &self.get_function_constant_args(&actual_args);
 
-        let destination_path = destination.as_ref().map(|dest| self.get_path_for_place(&dest.0));
+        let destination_path = destination
+            .as_ref()
+            .map(|dest| self.get_path_for_place(&dest.0));
 
         debug!("actual_args: {:?}", actual_args);
         debug!("actual_argument_types: {:?}", actual_argument_types);
@@ -2168,33 +2167,32 @@ where
             ..
         } = &source_path.value
         {
-            match **selector {
-                // If index is a constant integer
-                PathSelector::ConstantIndex {
-                    offset, from_end, ..
-                } => {
-                    let index = if from_end {
-                        // Compute index inversely
-                        let len_value = self.get_len(qualifier.clone());
-                        if let SymbolicValue {
-                            expression: Expression::CompileTimeConstant(ConstantValue::Int(len)),
-                            ..
-                        } = len_value.as_ref()
-                        {
-                            len.clone() - Integer::from(offset)
-                        } else {
-                            unreachable!("PathSelector::ConstantIndex implies the length of the value is known");
-                        }
+            if let PathSelector::ConstantIndex {
+                offset, from_end, ..
+            } = **selector
+            {
+                let index = if from_end {
+                    // Compute index inversely
+                    let len_value = self.get_len(qualifier.clone());
+                    if let SymbolicValue {
+                        expression: Expression::CompileTimeConstant(ConstantValue::Int(len)),
+                        ..
+                    } = len_value.as_ref()
+                    {
+                        len.clone() - Integer::from(offset)
                     } else {
-                        Integer::from(offset)
-                    };
-                    let index_val = Rc::new(ConstantValue::Int(index).into());
-                    let index_path =
-                        Path::new_index(qualifier.clone(), index_val).refine_paths(&self.state());
-                    self.copy_or_move_elements(target_path, index_path, target_rustc_type, is_move);
-                    return;
-                }
-                _ => (),
+                        unreachable!(
+                            "PathSelector::ConstantIndex implies the length of the value is known"
+                        );
+                    }
+                } else {
+                    Integer::from(offset)
+                };
+                let index_val = Rc::new(ConstantValue::Int(index).into());
+                let index_path =
+                    Path::new_index(qualifier.clone(), index_val).refine_paths(&self.state());
+                self.copy_or_move_elements(target_path, index_path, target_rustc_type, is_move);
+                return;
             }
         };
         // Finish handling constant indexing in source_path
@@ -2225,8 +2223,10 @@ where
                             target_rustc_type,
                             is_move,
                             &source_path,
-                            0,
-                            val.to_u64().unwrap(),
+                            Range {
+                                start: 0,
+                                end: val.to_u64().unwrap(),
+                            },
                             false,
                         );
                     } else {
@@ -2302,7 +2302,6 @@ where
                 debug!("copying {:?} to {:?}", value, target_path);
                 self.body_visitor.state.update_value_at(target_path, value);
             }
-            
         }
     }
 
@@ -2312,10 +2311,11 @@ where
         target_type: Ty<'tcx>,
         is_move: bool,
         qualifier: &Rc<Path>,
-        from: u64,
-        to: u64,
+        range: Range<u64>,
         from_end: bool,
     ) {
+        let from = range.start;
+        let to = range.end;
         let to = {
             if from_end {
                 let len_value = self.get_len(qualifier.clone());
