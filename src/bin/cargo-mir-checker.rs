@@ -177,7 +177,7 @@ fn in_cargo_mir_checker() {
         }
 
         // Add cargo args until first `--`.
-        while let Some(arg) = args.next() {
+        for arg in &mut args {
             if arg == "--" {
                 break;
             }

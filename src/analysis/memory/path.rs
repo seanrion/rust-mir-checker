@@ -451,7 +451,7 @@ where
     /// we want to dereference the qualifier in order to normalize the path
     /// and not have more than one path for the same location.
     fn refine_paths(&self, environment: &AbstractDomain<DomainType>) -> Rc<Path> {
-        if let Some(mut val) = environment.value_at(&self) {
+        if let Some(mut val) = environment.value_at(self) {
             // If the environment has self as a key, then self is canonical, since we should only
             // use canonical paths as keys. The value at the canonical key, however, could just
             // be a reference to another path, which is something that happens during refinement.

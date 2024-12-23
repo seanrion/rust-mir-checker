@@ -249,7 +249,7 @@ where
         variant_index: rustc_target::abi::VariantIdx,
     ) {
         let target_path =
-            Path::new_discriminant(self.visit_place(place)).refine_paths(&self.state());
+            Path::new_discriminant(self.visit_place(place)).refine_paths(self.state());
 
         let ty = self
             .body_visitor
@@ -382,14 +382,14 @@ where
             self.body_visitor.fresh_variable_offset
         );
         let place_path = self.get_path_for_place(place);
-        let mut path = place_path.refine_paths(&self.state());
+        let mut path = place_path.refine_paths(self.state());
         match &path.value {
             PathEnum::QualifiedPath {
                 qualifier,
                 selector,
                 ..
             } if **selector == PathSelector::Deref => {
-                let refined_qualifier = qualifier.refine_paths(&self.state());
+                let refined_qualifier = qualifier.refine_paths(self.state());
                 let qualifier_ty = self
                     .body_visitor
                     .type_visitor
@@ -538,7 +538,7 @@ where
             last_index = i as u128;
             let index_value = self.body_visitor.get_u128_const_val(last_index);
             let index_path =
-                Path::new_index(array_path.clone(), index_value).refine_paths(&self.state()); //todo: maybe not needed?
+                Path::new_index(array_path.clone(), index_value).refine_paths(self.state()); //todo: maybe not needed?
             self.body_visitor.state.update_value_at(index_path, operand);
         }
         let length_path = Path::new_length(array_path.clone());
@@ -703,7 +703,7 @@ where
                         // If this is not a Zero-Sized Type (ZST)
                         if size.bytes() != 0 {
                             let data = scalar_int.assert_bits(size);
-                            result = self.get_constant_from_scalar(&ty.kind(), data, size.bytes());
+                            result = self.get_constant_from_scalar(ty.kind(), data, size.bytes());
                         } else {
                             return symbolic_value::BOTTOM.into();
                         }
@@ -812,7 +812,7 @@ where
                         // If this is not a Zero-Sized Type (ZST)
                         if size.bytes() != 0 {
                             let data = scalar_int.assert_bits(size);
-                            result = self.get_constant_from_scalar(&ty.kind(), data, size.bytes());
+                            result = self.get_constant_from_scalar(ty.kind(), data, size.bytes());
                         } else {
                             return symbolic_value::BOTTOM.into();
                         }
@@ -820,7 +820,7 @@ where
                     _ => unreachable!(),
                 },
                 TyKind::Ref(_, ty, rustc_hir::Mutability::Not) => {
-                    return self.get_reference_to_constant(&ct, ty);
+                    return self.get_reference_to_constant(ct, ty);
                 }
                 TyKind::Adt(adt_def, _) if adt_def.is_enum() => {
                     return self.get_enum_variant_as_constant(ct, ty);
@@ -859,7 +859,7 @@ where
                                 self.body_visitor.current_span,
                             );
                             let scalar_val: Rc<SymbolicValue> = Rc::new(
-                                self.get_constant_from_scalar(&scalar_ty.kind(), data, size)
+                                self.get_constant_from_scalar(scalar_ty.kind(), data, size)
                                     .into(),
                             );
                             self.body_visitor
@@ -985,7 +985,7 @@ where
                             },
                         )
                         .unwrap();
-                    self.deconstruct_reference_to_constant_array(&bytes, e_type, Some(len), ty)
+                    self.deconstruct_reference_to_constant_array(bytes, e_type, Some(len), ty)
                 }
                 _ => {
                     debug!("unsupported val of type Ref: {:?}", val);
@@ -1074,7 +1074,7 @@ where
                 unreachable!();
             }
             rustc_middle::ty::ConstKind::Value(ConstValue::Slice { data, start, end }) => {
-                self.get_reference_to_slice(&ty.kind(), *data, *start, *end)
+                self.get_reference_to_slice(ty.kind(), *data, *start, *end)
             }
             _ => {
                 debug!("span: {:?}", self.body_visitor.current_span);
@@ -1133,7 +1133,7 @@ where
             match &ty.kind() {
                 TyKind::Array(_, len) => {
                     let len_val = self.visit_constant(None, &ConstantKind::from(*len));
-                    let len_path = Path::new_length(base_path.clone()).refine_paths(&self.state());
+                    let len_path = Path::new_length(base_path.clone()).refine_paths(self.state());
                     self.body_visitor.state.update_value_at(len_path, len_val);
                 }
                 TyKind::Closure(def_id, generic_args, ..)
@@ -1178,7 +1178,7 @@ where
             }
             base_path
         } else {
-            self.visit_projection(base_path, &place.projection)
+            self.visit_projection(base_path, place.projection)
         }
     }
 
@@ -1188,10 +1188,10 @@ where
         projection: &[mir::PlaceElem<'tcx>],
     ) -> Rc<Path> {
         let result = projection.iter().fold(base_path, |base_path, elem| {
-            if let Some(selector) = self.visit_projection_elem(&elem) {
-                Path::new_qualified(base_path, Rc::new(selector)).refine_paths(&self.state())
+            if let Some(selector) = self.visit_projection_elem(elem) {
+                Path::new_qualified(base_path, Rc::new(selector)).refine_paths(self.state())
             } else {
-                base_path.refine_paths(&self.state())
+                base_path.refine_paths(self.state())
             }
         });
         result
@@ -1744,7 +1744,7 @@ where
         operands: &[mir::Operand<'tcx>],
     ) {
         assert!(matches!(aggregate_kinds, mir::AggregateKind::Array(..)));
-        let length_path = Path::new_length(path.clone()).refine_paths(&self.state());
+        let length_path = Path::new_length(path.clone()).refine_paths(self.state());
         let length_value = self.body_visitor.get_u128_const_val(operands.len() as u128);
         self.body_visitor
             .state
@@ -1753,7 +1753,7 @@ where
         // Handle the list of operands
         for (i, operand) in operands.iter().enumerate() {
             let index_value = self.body_visitor.get_u128_const_val(i as u128);
-            let index_path = Path::new_index(path.clone(), index_value).refine_paths(&self.state());
+            let index_path = Path::new_index(path.clone(), index_value).refine_paths(self.state());
             self.visit_used_operand(index_path, operand);
         }
     }
@@ -1770,7 +1770,7 @@ where
                 let mir::Constant {
                     user_ty, literal, ..
                 } = constant.borrow();
-                let const_value = self.visit_constant(*user_ty, &literal);
+                let const_value = self.visit_constant(*user_ty, literal);
                 self.body_visitor
                     .state
                     .update_value_at(target_path, const_value);
@@ -1899,7 +1899,7 @@ where
                             self.body_visitor
                                 .state
                                 .numerical_domain
-                                .apply_bin_op_const_place(op, &left_integer, &right_path, &path);
+                                .apply_bin_op_const_place(op, left_integer, &right_path, &path);
                         }
                         // Expression::CompileTimeConstant(ConstantValue::Top) => {
                         _ => {
@@ -1914,7 +1914,7 @@ where
                             self.body_visitor
                                 .state
                                 .numerical_domain
-                                .apply_bin_op_place_const(op, &left_path, &right_integer, &path);
+                                .apply_bin_op_place_const(op, &left_path, right_integer, &path);
                         }
                         // Expression::CompileTimeConstant(ConstantValue::Top) => {
                         _ => {
@@ -1959,7 +1959,7 @@ where
         left_operand: &mir::Operand<'tcx>,
         right_operand: &mir::Operand<'tcx>,
     ) {
-        let path0 = Path::new_field(path, 0).refine_paths(&self.state());
+        let path0 = Path::new_field(path, 0).refine_paths(self.state());
         self.visit_binary_op(path0, bin_op, left_operand, right_operand);
     }
 
@@ -1975,7 +1975,7 @@ where
         self.body_visitor
             .state
             .update_value_at(length_path, length_value.clone());
-        let slice_path = Path::new_slice(path, length_value).refine_paths(&self.state());
+        let slice_path = Path::new_slice(path, length_value).refine_paths(self.state());
         let initial_value = self.visit_operand(operand);
         self.body_visitor
             .state
@@ -1993,7 +1993,7 @@ where
                 let mir::Constant {
                     user_ty, literal, ..
                 } = constant.borrow();
-                self.visit_constant(*user_ty, &literal)
+                self.visit_constant(*user_ty, literal)
             }
         }
     }
@@ -2015,7 +2015,7 @@ where
             .body_visitor
             .type_visitor
             .get_rustc_place_type(place, self.body_visitor.current_span);
-        let value_path = self.visit_place(place).refine_paths(&self.state());
+        let value_path = self.visit_place(place).refine_paths(self.state());
         debug!(
             "In handling `path = &place`, get path of place={:?}",
             value_path
@@ -2030,7 +2030,7 @@ where
             } if *selector.as_ref() == PathSelector::Deref => {
                 self.copy_or_move_elements(
                     path,
-                    qualifier.refine_paths(&self.state()),
+                    qualifier.refine_paths(self.state()),
                     target_type,
                     false,
                 );
@@ -2038,7 +2038,7 @@ where
             }
             // If `place` is qualified (but not a dereference)
             PathEnum::QualifiedPath { .. } => {
-                SymbolicValue::make_reference(value_path.refine_paths(&self.state()))
+                SymbolicValue::make_reference(value_path.refine_paths(self.state()))
             }
             PathEnum::PromotedConstant { .. } => {
                 if let Some(val) = self.state().value_at(&value_path) {
@@ -2081,7 +2081,7 @@ where
                     "constant: {:?}, literal: {:?}, user_ty: {:?}, rh_type: {:?}",
                     constant, literal, user_ty, rh_type
                 );
-                let const_value = self.visit_constant(*user_ty, &literal);
+                let const_value = self.visit_constant(*user_ty, literal);
                 if const_value.expression.infer_type() == ExpressionType::NonPrimitive {
                     if let Expression::Reference(rpath) | Expression::Variable { path: rpath, .. } =
                         &const_value.expression
@@ -2137,7 +2137,7 @@ where
     }
 
     fn get_len(&mut self, path: Rc<Path>) -> Rc<SymbolicValue> {
-        let length_path = Path::new_length(path).refine_paths(&self.state());
+        let length_path = Path::new_length(path).refine_paths(self.state());
         self.body_visitor
             .lookup_path_and_refine_result(length_path, self.body_visitor.context.tcx.types.usize)
     }
@@ -2188,7 +2188,7 @@ where
                 };
                 let index_val = Rc::new(ConstantValue::Int(index).into());
                 let index_path =
-                    Path::new_index(qualifier.clone(), index_val).refine_paths(&self.state());
+                    Path::new_index(qualifier.clone(), index_val).refine_paths(self.state());
                 self.copy_or_move_elements(target_path, index_path, target_rustc_type, is_move);
                 return;
             }
@@ -2354,12 +2354,12 @@ where
         for i in from..to {
             let index_val = self.body_visitor.get_u128_const_val(u128::from(i));
             let index_path =
-                Path::new_index(qualifier.clone(), index_val).refine_paths(&self.state());
+                Path::new_index(qualifier.clone(), index_val).refine_paths(self.state());
             let target_index_val = self
                 .body_visitor
                 .get_u128_const_val(u128::try_from(i - from).unwrap());
             let indexed_target =
-                Path::new_index(target_path.clone(), target_index_val).refine_paths(&self.state());
+                Path::new_index(target_path.clone(), target_index_val).refine_paths(self.state());
             self.copy_or_move_elements(indexed_target, index_path, target_type, is_move);
         }
     }
@@ -2386,10 +2386,10 @@ where
                 .replace_root(source_path, dummy_root)
                 .refine_parameters(arguments)
                 .replace_root(&refined_dummy_root, target_path.clone())
-                .refine_paths(&self.state());
+                .refine_paths(self.state());
             let rvalue = value
                 .refine_parameters(arguments)
-                .refine_paths(&self.state());
+                .refine_paths(self.state());
             debug!("refined effect {:?} {:?}", tpath, rvalue);
             self.body_visitor.state.remove(path);
             let rtype = rvalue.expression.infer_type();

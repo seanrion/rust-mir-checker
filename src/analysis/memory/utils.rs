@@ -242,7 +242,7 @@ pub fn summary_key_str(tcx: TyCtxt<'_>, def_id: DefId) -> Rc<String> {
                     }
                 }
                 if let Some(type_ns) = &type_ns {
-                    name.push_str(&type_ns);
+                    name.push_str(type_ns);
                     continue;
                 }
             }
@@ -277,7 +277,7 @@ fn push_component_name(component_data: DefPathData, target: &mut String) {
 pub fn are_concrete(gen_args: SubstsRef<'_>) -> bool {
     for gen_arg in gen_args.iter() {
         if let GenericArgKind::Type(ty) = gen_arg.unpack() {
-            if !is_concrete(&ty.kind()) {
+            if !is_concrete(ty.kind()) {
                 return false;
             }
         }
@@ -298,7 +298,7 @@ pub fn is_concrete(ty: &TyKind<'_>) -> bool {
             substs: gen_args, ..
         })
         | TyKind::Tuple(gen_args) => are_concrete(gen_args),
-        TyKind::Ref(_, ty, _) => is_concrete(&ty.kind()),
+        TyKind::Ref(_, ty, _) => is_concrete(ty.kind()),
         _ => true,
     }
 }

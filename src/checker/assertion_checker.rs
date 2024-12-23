@@ -142,7 +142,7 @@ where
     ) -> CheckerResult {
         let solver = &self.body_visitor.z3_solver;
 
-        Self::add_numerical_constraints(&solver, abstract_value);
+        Self::add_numerical_constraints(solver, abstract_value);
 
         let result;
         debug!("In converting assertion condition: {:?}", cond);
@@ -193,7 +193,7 @@ where
         abstract_value: &AbstractDomain<DomainType>,
     ) -> CheckerResult {
         let solver = &self.body_visitor.z3_solver;
-        Self::add_numerical_constraints(&solver, abstract_value);
+        Self::add_numerical_constraints(solver, abstract_value);
 
         let exp_type: ExpressionType = val_ty.kind().into();
 

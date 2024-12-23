@@ -296,7 +296,7 @@ where
                 SymbolicValue::make_reference(refined_path)
             }
             Expression::Variable { path, var_type } => {
-                if let Some(val) = environment.value_at(&path) {
+                if let Some(val) = environment.value_at(path) {
                     val
                 } else {
                     let refined_path = path.refine_paths(environment);
@@ -1075,7 +1075,7 @@ impl SymbolicValueTrait for Rc<SymbolicValue> {
 
             // [x || !x] -> true
             if let Expression::LogicalNot { operand } = &other.expression {
-                if is_contained_in(operand, &self) {
+                if is_contained_in(operand, self) {
                     return Rc::new(SymbolicValue::new_true());
                 }
             }
@@ -1108,7 +1108,7 @@ impl SymbolicValueTrait for Rc<SymbolicValue> {
                     Rc::new(SymbolicValue::new_true())
                 }
                 // [x || !x] -> true
-                (_, Expression::LogicalNot { ref operand }) if (**operand).eq(&self) => {
+                (_, Expression::LogicalNot { ref operand }) if (**operand).eq(self) => {
                     Rc::new(SymbolicValue::new_true())
                 }
 
@@ -1226,7 +1226,7 @@ impl SymbolicValueTrait for Rc<SymbolicValue> {
             // Widened expressions are equal if their paths are equal, regardless of their operand values.
             (Expression::Widen { path: p1, .. }, Expression::Widen { path: p2, .. }) => *p1 == *p2,
             // x subset widen { z } if x subset z
-            (_, Expression::Widen { operand, .. }) => self.subset(&operand),
+            (_, Expression::Widen { operand, .. }) => self.subset(operand),
             // (left join right) is a subset of x if both left and right are subsets of x.
             (Expression::Join { left, right, .. }, _) => {
                 // This is a conservative answer. False does not imply other.subset(self).
@@ -1235,7 +1235,7 @@ impl SymbolicValueTrait for Rc<SymbolicValue> {
             // x is a subset of (left join right) if x is a subset of either left or right.
             (_, Expression::Join { left, right, .. }) => {
                 // This is a conservative answer. False does not imply other.subset(self).
-                self.subset(&left) || self.subset(&right)
+                self.subset(left) || self.subset(right)
             }
             // in all other cases we conservatively answer false
             _ => false,
@@ -1334,15 +1334,15 @@ impl SymbolicValueTrait for Rc<SymbolicValue> {
                 // refining the right expression whenever possible, even at the expense of
                 // more checks here. If the performance of implies and implies_not should become
                 // significantly worse than it is now, this could become a performance bottle neck.
-                if path_condition.implies(&left) || path_condition.implies(&right) {
+                if path_condition.implies(left) || path_condition.implies(right) {
                     Rc::new(SymbolicValue::new_true())
-                } else if path_condition.implies_not(&left) {
-                    if path_condition.implies_not(&right) {
+                } else if path_condition.implies_not(left) {
+                    if path_condition.implies_not(right) {
                         Rc::new(SymbolicValue::new_false())
                     } else {
                         right.refine_with(path_condition, depth + 1)
                     }
-                } else if path_condition.implies_not(&right) {
+                } else if path_condition.implies_not(right) {
                     left.refine_with(path_condition, depth + 1)
                 } else {
                     left.refine_with(path_condition, depth + 1)
@@ -1352,16 +1352,16 @@ impl SymbolicValueTrait for Rc<SymbolicValue> {
             Expression::Reference(..) => self.clone(),
             Expression::Variable { var_type, .. } => {
                 if *var_type == ExpressionType::Bool {
-                    if path_condition.implies(&self) {
+                    if path_condition.implies(self) {
                         return Rc::new(SymbolicValue::new_true());
-                    } else if path_condition.implies_not(&self) {
+                    } else if path_condition.implies_not(self) {
                         return Rc::new(SymbolicValue::new_false());
                     }
                 }
                 self.clone()
             }
             Expression::Widen { path, operand } => {
-                operand.refine_with(path_condition, depth + 1).widen(&path)
+                operand.refine_with(path_condition, depth + 1).widen(path)
             }
         }
     }

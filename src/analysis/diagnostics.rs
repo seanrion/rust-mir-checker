@@ -74,14 +74,14 @@ impl<'compiler> Diagnostic<'compiler> {
         if x.builder
             .span
             .primary_spans()
-            .lt(&y.builder.span.primary_spans())
+            .lt(y.builder.span.primary_spans())
         {
             Ordering::Less
         } else if x
             .builder
             .span
             .primary_spans()
-            .gt(&y.builder.span.primary_spans())
+            .gt(y.builder.span.primary_spans())
         {
             Ordering::Greater
         } else {

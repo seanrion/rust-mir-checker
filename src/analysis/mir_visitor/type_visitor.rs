@@ -276,7 +276,7 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
     ) -> Ty<'tcx> {
         let result = {
             let base_type = self.mir.local_decls[place.local].ty;
-            self.get_type_for_projection_element(current_span, base_type, &place.projection)
+            self.get_type_for_projection_element(current_span, base_type, place.projection)
         };
         match result.kind() {
             // Type parameter, e.g., `T` in `fn f<T>(x: T) {}`
@@ -522,7 +522,7 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                 .tcx
                 .mk_opaque(*def_id, self.specialize_substs(substs, map)),
             TyKind::Param(ParamTy { name, .. }) => {
-                if let Some(ty) = map.as_ref().unwrap().get(&name) {
+                if let Some(ty) = map.as_ref().unwrap().get(name) {
                     return *ty;
                 }
                 gen_arg_type
@@ -538,7 +538,7 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
     ) -> SubstsRef<'tcx> {
         let specialized_generic_args: Vec<GenericArg<'_>> = substs
             .iter()
-            .map(|gen_arg| self.specialize_generic_argument(gen_arg, &map))
+            .map(|gen_arg| self.specialize_generic_argument(gen_arg, map))
             .collect();
         self.tcx.intern_substs(&specialized_generic_args)
     }
@@ -554,7 +554,7 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                 for v in def.variants.iter() {
                     if let Some(field0) = v.fields.get(0) {
                         let field0_ty = field0.ty(self.tcx, substs);
-                        if self.starts_with_slice_pointer(&field0_ty.kind()) {
+                        if self.starts_with_slice_pointer(field0_ty.kind()) {
                             return true;
                         }
                     }

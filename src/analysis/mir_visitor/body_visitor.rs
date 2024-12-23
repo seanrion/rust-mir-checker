@@ -989,7 +989,7 @@ where
 
             // Analyze the rest blocks in the body
             for comp in circle {
-                self.visit_component(&comp);
+                self.visit_component(comp);
             }
 
             // Check whether fixed-point is reached
@@ -1017,7 +1017,7 @@ where
 
                 // Analyze the rest blocks in the body
                 for comp in circle {
-                    self.visit_component(&comp);
+                    self.visit_component(comp);
                 }
 
                 // Check whether fixed-point is reached

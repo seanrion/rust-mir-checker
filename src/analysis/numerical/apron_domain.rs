@@ -826,7 +826,7 @@ where
         assert_eq!(rhs.var_map.len(), rhs.get_dims());
         let mut vars: Vec<Rc<Path>> = lhs.var_map.keys().cloned().collect();
         for v in rhs.var_map.keys() {
-            if !vars.contains(&v) {
+            if !vars.contains(v) {
                 vars.push(v.clone());
             }
         }

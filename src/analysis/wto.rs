@@ -299,8 +299,8 @@ pub trait WtoVisitor {
     fn visit_circle(&mut self, circle: &WtoCircle);
     fn visit_component(&mut self, comp: &WtoComponent) {
         match comp {
-            WtoComponent::Vertex(wto_vertex) => self.visit_vertex(&wto_vertex),
-            WtoComponent::Circle(wto_circle) => self.visit_circle(&wto_circle),
+            WtoComponent::Vertex(wto_vertex) => self.visit_vertex(wto_vertex),
+            WtoComponent::Circle(wto_circle) => self.visit_circle(wto_circle),
         }
     }
 }
@@ -334,7 +334,7 @@ impl WtoVisitor for WtoNestingIterator {
         self.wto_nesting_map.insert(head, self.wto_nesting.clone());
         self.wto_nesting.push(head);
         for comp in circle {
-            self.visit_component(&comp);
+            self.visit_component(comp);
         }
         self.wto_nesting.pop();
     }
