@@ -153,11 +153,10 @@ where
                 debug!("Value is integer variable, store in both numerical and symbolic domain");
                 self.numerical_domain
                     .assign_var(path.clone(), rpath.clone());
-                self.symbolic_domain.value_map.insert(path, value.clone());
             } else {
                 debug!("Value is a variable but not integer store in symbolic domain");
-                self.symbolic_domain.value_map.insert(path, value.clone());
             }
+            self.symbolic_domain.value_map.insert(path, value.clone());
         } else {
             // Reach here if value is not numerical, store them in symbolic domain
             debug!("Value is not numerical, store in symbolic domain");

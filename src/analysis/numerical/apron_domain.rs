@@ -1314,10 +1314,10 @@ mod tests {
     #[test]
     fn test_apron_domain() {
         let mut domain1 = ApronAbstractDomain::<ApronInterval>::default();
-        assert_eq!(domain1.is_top(), true);
-        assert_eq!(domain1.is_bottom(), false);
+        assert!(domain1.is_top());
+        assert!(!domain1.is_bottom());
         domain1.set_to_bottom();
-        assert_eq!(domain1.is_bottom(), true);
+        assert!(domain1.is_bottom());
         assert_eq!(domain1.get_dims(), 0);
         domain1.add_dimensions(1);
         assert_eq!(domain1.get_dims(), 1);

@@ -906,7 +906,7 @@ where
     /// Merge all the predecessors' states
     fn get_state_from_predecessors(&mut self, bb: mir::BasicBlock) -> AbstractDomain<DomainType> {
         debug!("Start merging state from predecessors");
-        let pred_states: Vec<AbstractDomain<DomainType>> =
+        let joined_state =
             // For all predecessors of bb
             self.wto.get_mir().predecessors()[bb]
                 .iter()
@@ -930,12 +930,8 @@ where
                         None
                     }
                 })
-                .collect();
-        // Merge states using the join operator
-        let joined_state = pred_states
-            .into_iter()
-            .fold1(|state1, state2| state1.join(&state2))
-            .expect("Panic while merging states using fold1");
+                .fold1(|state1, state2| state1.join(&state2))
+                .expect("Panic while merging states using fold1");
         debug!("Merged state: {:?}", joined_state);
         joined_state
     }
