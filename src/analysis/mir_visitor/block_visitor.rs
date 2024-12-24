@@ -30,7 +30,7 @@ use core::ops::Range;
 use rug::Integer;
 use rustc_hir::def_id::DefId;
 use rustc_middle::mir;
-use rustc_middle::mir::interpret::{ConstValue, Scalar, AllocRange};
+use rustc_middle::mir::interpret::{AllocRange, ConstValue, Scalar};
 use rustc_middle::mir::ConstantKind;
 use rustc_middle::ty::subst::SubstsRef;
 use rustc_middle::ty::{Const, ParamConst, ScalarInt, Ty, TyKind, UserTypeAnnotationIndex};
@@ -771,7 +771,8 @@ where
                                 // invent a pointer, only the offset is relevant anyway
                                 AllocRange {
                                     start: rustc_target::abi::Size::from_bytes(*start as u64),
-                                    size: rustc_target::abi::Size::from_bytes(slice_len as u64) },
+                                    size: rustc_target::abi::Size::from_bytes(slice_len as u64),
+                                },
                             )
                             .unwrap();
 
@@ -792,7 +793,10 @@ where
                     mutbl: rustc_hir::Mutability::Mut,
                 })
                 | TyKind::Ref(_, ty, rustc_hir::Mutability::Mut) => match &val {
-                    rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Ptr(p))) => {
+                    rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Ptr(
+                        p,
+                        _size,
+                    ))) => {
                         let summary_cache_key = format!("{:?}", p).into();
                         let expression_type: ExpressionType = ExpressionType::from(ty.kind());
                         let path = Rc::new(
@@ -883,6 +887,7 @@ where
                 }
             };
         }
+        debug!("unsupported ConstantKind {:?}", literal);
         Rc::new(result.into())
     }
 
@@ -900,10 +905,10 @@ where
             .get_bytes(
                 &self.body_visitor.context.tcx,
                 // invent a pointer, only the offset is relevant anyway
-                AllocRange{
-                    start : rustc_target::abi::Size::from_bytes(start as u64),
-                    size : rustc_target::abi::Size::from_bytes(slice_len as u64),
-                }
+                AllocRange {
+                    start: rustc_target::abi::Size::from_bytes(start as u64),
+                    size: rustc_target::abi::Size::from_bytes(slice_len as u64),
+                },
             )
             .unwrap();
         let slice = &bytes[start..end];
@@ -946,7 +951,7 @@ where
                             // invent a pointer, only the offset is relevant anyway
                             AllocRange {
                                 start: rustc_target::abi::Size::from_bytes(*start as u64),
-                                size:rustc_target::abi::Size::from_bytes(slice_len as u64),
+                                size: rustc_target::abi::Size::from_bytes(slice_len as u64),
                             },
                         )
                         .unwrap();
@@ -954,10 +959,11 @@ where
                     self.deconstruct_reference_to_constant_array(slice, e_type, Some(len), ty)
                 }
                 rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(
-                    mir::interpret::Scalar::Ptr(ptr),
+                    mir::interpret::Scalar::Ptr(ptr, _size),
                 )) => {
+                    let (alloc_id, offset) = ptr.into_parts();
                     if let Some(rustc_middle::mir::interpret::GlobalAlloc::Static(def_id)) =
-                        self.body_visitor.context.tcx.get_global_alloc(ptr.alloc_id)
+                        self.body_visitor.context.tcx.get_global_alloc(alloc_id)
                     {
                         // TODO: implement this
                         // unreachable!("static is not supported yet");
@@ -969,10 +975,10 @@ where
                         .body_visitor
                         .context
                         .tcx
-                        .global_alloc(ptr.alloc_id)
+                        .global_alloc(alloc_id)
                         .unwrap_memory();
                     let alloc_len = alloc.len() as u64;
-                    let offset_bytes = ptr.offset.bytes();
+                    let offset_bytes = offset.bytes();
                     // The Rust compiler should ensure this.
                     assert!(alloc_len > offset_bytes);
                     let num_bytes = alloc_len - offset_bytes;
@@ -980,7 +986,7 @@ where
                         .get_bytes(
                             &self.body_visitor.context.tcx,
                             AllocRange {
-                                start:  ptr.offset,
+                                start: offset,
                                 size: rustc_target::abi::Size::from_bytes(num_bytes),
                             },
                         )
@@ -1047,9 +1053,10 @@ where
         ty: Ty<'tcx>,
     ) -> Rc<SymbolicValue> {
         match &literal.val {
-            rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Ptr(p))) => {
+            rustc_middle::ty::ConstKind::Value(ConstValue::Scalar(Scalar::Ptr(p, _size))) => {
+                let (alloc_id, _offset) = p.into_parts();
                 if let Some(rustc_middle::mir::interpret::GlobalAlloc::Static(def_id)) =
-                    self.body_visitor.context.tcx.get_global_alloc(p.alloc_id)
+                    self.body_visitor.context.tcx.get_global_alloc(alloc_id)
                 {
                     // TODO: implement this
                     // let name = utils::summary_key_str(self.body_visitor.context.tcx, def_id);

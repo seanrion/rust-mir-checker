@@ -437,23 +437,23 @@ impl<'compilation, 'tcx> TypeVisitor<'tcx> {
                                 ExistentialPredicate::Trait(ExistentialTraitRef {
                                     def_id,
                                     substs,
-                                }) => {
-                                    Binder::bind(ExistentialPredicate::Trait(ExistentialTraitRef {
+                                }) => Binder::dummy(ExistentialPredicate::Trait(
+                                    ExistentialTraitRef {
                                         def_id,
                                         substs: self.specialize_substs(substs, map),
-                                    }), self.tcx,)
-                                }
+                                    },
+                                )),
                                 ExistentialPredicate::Projection(ExistentialProjection {
                                     item_def_id,
                                     substs,
                                     ty,
-                                }) => Binder::bind(ExistentialPredicate::Projection(
+                                }) => Binder::dummy(ExistentialPredicate::Projection(
                                     ExistentialProjection {
                                         item_def_id,
                                         substs: self.specialize_substs(substs, map),
                                         ty: self.specialize_generic_argument_type(ty, map),
                                     },
-                                ), self.tcx,),
+                                )),
                                 ExistentialPredicate::AutoTrait(_) => pred,
                             },
                         ))
