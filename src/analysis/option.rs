@@ -1,5 +1,6 @@
 use crate::analysis::diagnostics::DiagnosticCause;
 use log::warn;
+use std::option::Option;
 
 #[derive(Clone, Copy, Debug)]
 pub enum AbstractDomainType {
@@ -25,6 +26,7 @@ pub struct AnalysisOption {
     pub deny_warnings: bool,
     pub memory_safety_only: bool,
     pub suppressed_warnings: Option<Vec<DiagnosticCause>>,
+    pub output_file: Option<String>,
 }
 
 impl Default for AnalysisOption {
@@ -41,6 +43,7 @@ impl Default for AnalysisOption {
             deny_warnings: false,
             memory_safety_only: false,
             suppressed_warnings: None,
+            output_file: None,
         }
     }
 }
@@ -52,6 +55,11 @@ impl AnalysisOption {
         for (i, arg) in args.iter().enumerate() {
             if arg.starts_with("--") {
                 match &arg[2..] {
+                    "output_file" => {
+                        res.output_file = Some(args[i + 1].clone());
+                        indeices_to_remove.push(i);
+                        indeices_to_remove.push(i + 1);
+                    }
                     "show_entries" => {
                         res.show_entries = true;
                         indeices_to_remove.push(i);

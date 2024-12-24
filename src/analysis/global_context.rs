@@ -9,8 +9,11 @@ use rustc_middle::ty::TyCtxt;
 use rustc_session::Session;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::fmt::Write as _;
+use std::fs::File;
+use std::io::Write;
 use std::rc::Rc;
-
+use std::string::String;
 /// Cache the wto so we do not need to recompute them when analyzing a function multiple times
 pub struct WtoCache<'tcx> {
     value: HashMap<DefId, Wto<'tcx>>,
@@ -87,6 +90,17 @@ impl<'tcx, 'compiler> GlobalContext<'tcx, 'compiler> {
                     }
                     // println!("{}", def_id.to_def_id().index.as_u32());
                 }
+            }
+            let mut output = String::new();
+            for name in &names {
+                writeln!(&mut output, "{}", name).expect("Something Wrong in write output");
+            }
+            if let Some(path) = analysis_options.output_file {
+                let path = String::from(path);
+                let mut file = File::create(path).expect("output_file dose not exists");
+                write!(file, "{}", output).expect("Something Wrong in write output");
+            } else {
+                println!("{}", output);
             }
             return None;
         }
