@@ -610,12 +610,10 @@ where
         let mut result = ConstantValue::Top;
         if let ConstantKind::Ty(ct) = *literal {
             val = ct.val;
-            if let rustc_middle::ty::ConstKind::Unevaluated(rustc_middle::ty::Unevaluated {
-                def,
-                substs,
-                promoted,
-            }) = ct.val
-            {
+            if let rustc_middle::ty::ConstKind::Unevaluated(uv) = ct.val {
+                let substs = uv.substs(self.body_visitor.context.tcx);
+                let def = uv.def;
+                let promoted = uv.promoted;
                 if def.const_param_did.is_some() {
                     val = val.eval(
                         self.body_visitor.context.tcx,
@@ -2210,13 +2208,13 @@ where
         } = &target_path.value
         {
             match &**selector {
-                PathSelector::Index(value) => {
-                    if let Expression::CompileTimeConstant(..) = &value.expression {
-                        // fall through, the target path is unique
-                    } else {
-                        // TODO: implement weak updates or can we use other method?
-                        // and now fall through for a strong update of target_path
-                    }
+                PathSelector::Index(_value) => {
+                    // if let Expression::CompileTimeConstant(..) = &value.expression {
+                    // fall through, the target path is unique
+                    // } else {
+                    // TODO: implement weak updates or can we use other method?
+                    // and now fall through for a strong update of target_path
+                    // }
                 }
                 PathSelector::Slice(count) => {
                     // if the count is known at this point, expand it like a pattern.
