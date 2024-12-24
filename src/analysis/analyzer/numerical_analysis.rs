@@ -42,7 +42,7 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
         // This is used for debugging
         if self.context.analysis_options.deny_warnings {
             for diag in &mut diagnostics {
-                diag.builder.level = rustc_errors::Level::Error;
+                diag.builder.level = rustc_errors::Level::Error { lint: true };
             }
         }
 
