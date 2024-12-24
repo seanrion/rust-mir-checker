@@ -91,16 +91,9 @@ impl<'compiler> Diagnostic<'compiler> {
 }
 
 /// Store all the diagnoses generated for each `DefId`
+#[derive(Default)]
 pub struct DiagnosticsForDefId<'compiler> {
     pub map: HashMap<DefId, Vec<Diagnostic<'compiler>>>,
-}
-
-impl<'compiler> Default for DiagnosticsForDefId<'compiler> {
-    fn default() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
-    }
 }
 
 impl<'compiler> DiagnosticsForDefId<'compiler> {

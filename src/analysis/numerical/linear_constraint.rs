@@ -568,15 +568,9 @@ impl Debug for LinearConstraint {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct LinearConstraintSystem {
     csts: Vec<LinearConstraint>,
-}
-
-impl Default for LinearConstraintSystem {
-    fn default() -> Self {
-        Self { csts: Vec::new() }
-    }
 }
 
 impl LinearConstraintSystem {
