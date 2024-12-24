@@ -233,22 +233,19 @@ impl Debug for LinearExpression {
 
 fn refine_symbolic_value(val: Rc<SymbolicValue>) -> Rc<SymbolicValue> {
     use Expression::*;
-    match &val.expression {
-        Ne { left, right } => {
-            if let LogicalNot {
-                operand: left_operand,
-            } = &left.expression
-            {
-                return SymbolicValue::make_from(
-                    Expression::Equals {
-                        left: left_operand.clone(),
-                        right: right.clone(),
-                    },
-                    1,
-                );
-            }
+    if let Ne { left, right } = &val.expression {
+        if let LogicalNot {
+            operand: left_operand,
+        } = &left.expression
+        {
+            return SymbolicValue::make_from(
+                Expression::Equals {
+                    left: left_operand.clone(),
+                    right: right.clone(),
+                },
+                1,
+            );
         }
-        _ => {}
     }
     val
 }

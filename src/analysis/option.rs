@@ -53,8 +53,8 @@ impl AnalysisOption {
         let mut indeices_to_remove = vec![];
         let mut res = Self::default();
         for (i, arg) in args.iter().enumerate() {
-            if arg.starts_with("--") {
-                match &arg[2..] {
+            if let Some(stripped) = arg.strip_prefix("--") {
+                match stripped {
                     "output_file" => {
                         res.output_file = Some(args[i + 1].clone());
                         indeices_to_remove.push(i);

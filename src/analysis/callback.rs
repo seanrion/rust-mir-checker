@@ -47,11 +47,7 @@ impl rustc_driver::Callbacks for MirCheckerCallbacks {
 }
 
 impl MirCheckerCallbacks {
-    fn run_analysis<'tcx, 'compiler>(
-        &mut self,
-        compiler: &'compiler interface::Compiler,
-        tcx: TyCtxt<'tcx>,
-    ) {
+    fn run_analysis(&mut self, compiler: &interface::Compiler, tcx: TyCtxt) {
         if self.source_name.contains("/libcore")
             || self.source_name.contains("/compiler_builtins")
             || self.source_name.contains("/liballoc")

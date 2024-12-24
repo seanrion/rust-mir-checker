@@ -851,8 +851,8 @@ where
                 xmap2[new_index as usize] = 1;
             }
             let mut counter = 0;
-            for i in 0..lhs.get_dims() {
-                if xmap1[i] == 1 {
+            for (i, &item) in xmap1.iter().enumerate().take(lhs.get_dims()) {
+                if item == 1 {
                     continue;
                 }
                 while xmap2[counter] == 1 {
@@ -871,8 +871,8 @@ where
                 ymap2[new_index as usize] = 1;
             }
             let mut counter = 0;
-            for i in 0..lhs.get_dims() {
-                if ymap1[i] == 1 {
+            for (i, &item) in ymap1.iter().enumerate().take(lhs.get_dims()) {
+                if item == 1 {
                     continue;
                 }
                 while ymap2[counter] == 1 {

@@ -633,25 +633,24 @@ impl SymbolicValueTrait for Rc<SymbolicValue> {
                 left.cast(target_type.clone()).join(right.cast(target_type))
             }
             _ => {
-                match &self.expression {
-                    // [(x as t1) as target_type] -> x as target_type if t1.max_value() >= target_type.max_value()
-                    Expression::Cast {
-                        operand,
-                        target_type: t1,
-                    } => {
-                        if t1.is_integer()
-                            && target_type.is_unsigned_integer()
-                            && t1
-                                .max_value()
-                                .greater_or_equal(&target_type.max_value())
-                                .as_bool_if_known()
-                                .unwrap_or(false)
-                        {
-                            return operand.cast(target_type);
-                        }
+                // [(x as t1) as target_type] -> x as target_type if t1.max_value() >= target_type.max_value()
+                if let Expression::Cast {
+                    operand,
+                    target_type: t1,
+                } = &self.expression
+                {
+                    if t1.is_integer()
+                        && target_type.is_unsigned_integer()
+                        && t1
+                            .max_value()
+                            .greater_or_equal(&target_type.max_value())
+                            .as_bool_if_known()
+                            .unwrap_or(false)
+                    {
+                        return operand.cast(target_type);
                     }
-                    _ => (),
                 }
+
                 if self.expression.infer_type() != target_type {
                     SymbolicValue::make_typed_unary(
                         self.clone(),

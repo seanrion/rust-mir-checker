@@ -57,7 +57,7 @@ impl SymbolicDomain {
                         .value_map
                         .get(path)
                         .cloned()
-                        .unwrap_or(symbolic_value::BOTTOM.into());
+                        .unwrap_or_else(|| symbolic_value::BOTTOM.into());
                     symbolic_value.depend_on_path_value(path, &value)
                 }
             })
