@@ -187,7 +187,8 @@ where
                 .filter(|(bb, _domain)| body_visitor.result_blocks.contains(bb))
                 .map(|(_bb, domain)| domain)
                 .fold1(|state1, state2| state1.join(&state2))
-                .expect("panic in fold1");
+                // .expect("panic in fold1");
+                .unwrap_or_else(|| self.block_visitor.state().clone());
             return joined_state;
         }
         // If MIR is NOT available, return default abstract domain
