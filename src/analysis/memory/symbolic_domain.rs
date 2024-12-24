@@ -56,7 +56,7 @@ impl SymbolicDomain {
                     let value = self
                         .value_map
                         .get(path)
-                        .map(|x| x.clone())
+                        .cloned()
                         .unwrap_or(symbolic_value::BOTTOM.into());
                     symbolic_value.depend_on_path_value(path, &value)
                 }

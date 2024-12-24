@@ -87,7 +87,7 @@ where
         let def_id = body_visitor.def_id;
         Self {
             mir: body_visitor.wto.get_mir(),
-            def_id: def_id,
+            def_id,
             body_visitor,
             current_block: mir::BasicBlock::from_usize(0),
         }
@@ -838,7 +838,6 @@ where
                             .get_path_rustc_type(&path_to_scalar, self.body_visitor.current_span);
                         let scalar_val: Rc<SymbolicValue> = Rc::new(
                             self.get_constant_from_scalar(&scalar_ty.kind(), data, size)
-                                .clone()
                                 .into(),
                         );
                         self.body_visitor
@@ -861,7 +860,7 @@ where
                 result = ConstantValue::Top;
             }
         };
-        Rc::new(result.clone().into())
+        Rc::new(result.into())
     }
 
     fn get_reference_to_slice(
@@ -1333,10 +1332,7 @@ where
                 self.body_visitor
                     .emit_diagnostic(warning, true, DiagnosticCause::Memory);
             } else {
-                self.body_visitor
-                    .context
-                    .dropped_heaps
-                    .insert(related_heap.clone());
+                self.body_visitor.context.dropped_heaps.insert(related_heap);
             }
         }
     }
@@ -1433,7 +1429,7 @@ where
         call_visitor.args = args;
         call_visitor.actual_args = &actual_args;
         call_visitor.actual_argument_types = &actual_argument_types;
-        call_visitor.destination = destination.clone();
+        call_visitor.destination = *destination;
         call_visitor.callee_fun_val = func_to_call;
         call_visitor.function_constant_args = func_const_args;
         debug!("Calling function {:?}", call_visitor.callee_func_ref);

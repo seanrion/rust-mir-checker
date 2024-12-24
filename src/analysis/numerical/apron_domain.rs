@@ -7,7 +7,7 @@ use crate::analysis::numerical::linear_constraint::{
     LinearConstraint, LinearConstraintSystem, LinearExpression,
 };
 use crate::analysis::option::AbstractDomainType;
-use apron_sys;
+
 use foreign_types::foreign_type;
 use foreign_types::{ForeignType, ForeignTypeRef, Opaque};
 use rug::{Assign, Integer, Rational};
@@ -1296,9 +1296,9 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut res = String::new();
         if self.is_bottom() {
-            res.push_str("⊥");
+            res.push('⊥');
         } else if self.is_top() {
-            res.push_str("⊤");
+            res.push('⊤');
         } else {
             let constraint_system = LinearConstraintSystem::from(self);
             res.push_str(format!("{:?}", constraint_system).as_str());
@@ -1413,8 +1413,8 @@ mod tests {
         inv2.assign_linexpr(local_y.clone(), &LinearExpression::from(10));
         println!("inv2: {:?}", inv2);
 
-        inv3.assign_linexpr(local_x.clone(), &LinearExpression::from(10));
-        inv3.assign_linexpr(local_y.clone(), &LinearExpression::from(20));
+        inv3.assign_linexpr(local_x, &LinearExpression::from(10));
+        inv3.assign_linexpr(local_y, &LinearExpression::from(20));
         println!("inv3: {:?}", inv3);
 
         let inv4 = inv1.join(&inv3);

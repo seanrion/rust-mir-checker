@@ -495,10 +495,7 @@ where
                 {
                     if *base_selector.as_ref() == PathSelector::Deref {
                         // no need for an explicit deref in a qualifier
-                        return Path::new_qualified(
-                            base_qualifier.clone(),
-                            refined_selector.clone(),
-                        );
+                        return Path::new_qualified(base_qualifier.clone(), refined_selector);
                     }
                 }
                 if let Some(val) = environment.value_at(&refined_qualifier) {

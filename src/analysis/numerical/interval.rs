@@ -532,9 +532,9 @@ mod tests {
     #[test]
     fn test_integer_cmp() {
         let ninf = Bound::NINF;
-        let a = Bound::from(-1 as i128);
-        let b = Bound::from(0 as i128);
-        let c = Bound::from(1 as i128);
+        let a = Bound::from(-1_i128);
+        let b = Bound::from(0_i128);
+        let c = Bound::from(1_i128);
         let inf = Bound::INF;
         assert!(ninf < a && a < b && b < c && c < inf);
     }

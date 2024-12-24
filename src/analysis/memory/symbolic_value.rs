@@ -623,7 +623,7 @@ impl SymbolicValueTrait for Rc<SymbolicValue> {
             Expression::CompileTimeConstant(v1) => {
                 let result = v1.cast(&target_type);
                 if result != ConstantValue::Bottom {
-                    return Rc::new(result.into());
+                    Rc::new(result.into())
                 } else {
                     self.clone()
                 }

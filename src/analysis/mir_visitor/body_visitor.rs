@@ -347,7 +347,7 @@ where
                 .state
                 .value_at(local_path)
                 .expect("expect reference target to have a value");
-            let value_path = Path::get_as_path(target_value.clone());
+            let value_path = Path::get_as_path(target_value);
             let promoted_value = SymbolicValue::make_from(Expression::Reference(value_path), 1);
             environment.update_value_at(promoted_root.clone(), promoted_value);
         } else if let TyKind::Ref(_, ty, _) = target_type.kind() {
@@ -411,7 +411,7 @@ where
                     .state
                     .value_at(&Path::new_length(local_path.clone()))
                     .unwrap_or_else(|| unreachable!("promoted constant slice source is expected to have a length value, see source at {:?}", self.current_span))
-                    .clone();
+                    ;
                 let length_path = Path::new_length(promoted_root.clone());
                 environment.update_value_at(length_path, length_value);
             } else {
@@ -435,9 +435,7 @@ where
             .or_insert_with(|| SymbolicValue::make_from(constants.get_new_heap_block(), 1))
             .clone();
         let block_path = Path::get_as_path(block.clone());
-        self.type_visitor
-            .path_ty_cache
-            .insert(block_path.clone(), ty);
+        self.type_visitor.path_ty_cache.insert(block_path, ty);
         // let layout_path = Path::new_layout(block_path);
         // let layout = SymbolicValue::make_from(
         //     Expression::HeapBlockLayout {
@@ -812,7 +810,7 @@ where
                     self.get_var_name(r)
                 )
             }
-            _ => format!("{}", assert_kind.description()),
+            _ => assert_kind.description().to_string(),
         }
     }
 

@@ -10,7 +10,6 @@ use std::ffi::CString;
 use std::fmt;
 use std::rc::Rc;
 use std::sync::Mutex;
-use z3_sys;
 
 lazy_static! {
     static ref Z3_MUTEX: Mutex<()> = Mutex::new(());
